@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - "-std=c++2b"        # 使用 C++23 标准
+          # 启用 Concepts 支持
+    - "-stdlib=libstdc++" # 使用 GCC 标准库
+    - "-I/usr/include/c++/14.20"
+    - "-I/usr/include/x86_64-linux-gnu/c++/14.20"
+    - "-Iinclude"
+    - "-Ithird_party/include"
+    # 移除 "-fsyntax-only" 和 "-std=c20"
+
+  # 强制覆盖所有文件的标志（覆盖 compile_commands.json）
+  CompilationDatabase: true

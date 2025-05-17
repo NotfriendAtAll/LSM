@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.28)
+project(my_lsm_)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(${source_files} ${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_executable(${PROJECT_NAME} main.cpp  src/Skiplist.cpp)
+target_include_directories(${PROJECT_NAME}  PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/include)
