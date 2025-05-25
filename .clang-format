@@ -1,0 +1,18 @@
+BasedOnStyle: Google
+IndentWidth: 2                # 缩进宽度为 2 空格
+TabWidth: 2                   # Tab 的宽度为 2 空格
+UseTab: Never                 # 不使用 Tab，统一使用空格
+ColumnLimit: 100              # 每行代码的最大字符数限制为 100
+BreakBeforeBraces: Attach     # 大括号与控制语句在同一行
+AllowShortFunctionsOnASingleLine: Inline # 短函数允许写在一行
+DerivePointerAlignment: false # 不自动推导指针对齐方式
+PointerAlignment: Left        # 指针符号靠左对齐
+SpaceBeforeParens: ControlStatements # 控制语句后加空格
+SortIncludes: false           # 不自动排序 include 语句
+IncludeBlocks: Preserve       # 保留 include 的分组
+IndentCaseLabels: true        # case 语句缩进
+AlignConsecutiveAssignments: true # 对齐连续的赋值语句
+AlignConsecutiveDeclarations: true # 对齐连续的声明语句
+SpacesInAngles: false         # 模板参数的尖括号中不加空格
+SpaceAfterCStyleCast: true    # C 风格强制类型转换后加空格
+AllowShortIfStatementsOnASingleLine: false # 禁止单行 if 语句
