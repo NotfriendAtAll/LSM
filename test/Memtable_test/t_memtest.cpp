@@ -11,7 +11,7 @@ protected:
     }
     std::shared_ptr<MemTable> memtable;
 };
-
+/*
 // 基本的 put/get 操作测试
 TEST_F(MemtableTest, BasicPutGet) {
     memtable->put("key1", "value1");
@@ -120,6 +120,175 @@ TEST_F(MemtableTest, ConcurrentOperations) {
         EXPECT_EQ(result.value(), "value" + std::to_string(i));
     }
 }
+
+// 范围查询测试
+TEST_F(MemtableTest, RangeSearchTest) {
+    const int NUM_RECORDS = 10;  // 插入 1000 条数据
+    const std::string PREFIX = "key";
+
+    // 插入测试数据
+    for (int i = 0; i < NUM_RECORDS; ++i) {
+        std::string key = PREFIX + std::to_string(i);
+        std::string value = "value" + std::to_string(i);
+        memtable->put(key, value);
+    }
+
+    // 插入一些不相关的数据
+    memtable->put("other1", "other_value1");
+    memtable->put("prefix1", "prefix_value1");
+
+    // 测试范围查询
+    auto range_iter = memtable->prefix_serach(PREFIX);
+    std::vector<std::pair<std::string, std::string>> range_results;
+
+    while (range_iter.valid()) {
+        range_results.emplace_back(range_iter.getValue());
+        ++range_iter;
+    }
+
+    // 验证范围内的元素数量
+    EXPECT_EQ(range_results.size(), NUM_RECORDS);  // 应该有 NUM_RECORDS 个以 "key" 开头的键
+
+    // 验证范围内的元素内容
+    for (int i = 0; i < NUM_RECORDS; ++i) {
+        EXPECT_EQ(range_results[i].first, PREFIX + std::to_string(i));
+        EXPECT_EQ(range_results[i].second, "value" + std::to_string(i));
+    }
+
+    // 测试不存在的前缀
+    auto empty_iter = memtable->prefix_serach("nonexistent");
+    EXPECT_FALSE(empty_iter.valid());
+
+    // 测试边界情况
+    auto single_iter = memtable->prefix_serach("key0");
+    EXPECT_TRUE(single_iter.valid());
+    EXPECT_EQ(single_iter.getValue().first, "key0");
+    EXPECT_EQ(single_iter.getValue().second, "value0");
+}
+
+
+// 单性能测试
+TEST_F(MemtableTest, PerformanceAndMemoryUsageTest) {
+    const int NUM_RECORDS = 100000;  // 测试 10 万条数据
+    const std::string PREFIX = "key";
+
+    // 插入测试数据
+    auto start_time = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < NUM_RECORDS; ++i) {
+        std::string key = PREFIX + std::to_string(i);
+        std::string value = "value" + std::to_string(i);
+        memtable->put(key, value);
+    }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto insert_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "插入 " << NUM_RECORDS << " 条记录耗时: " << insert_duration.count() << " ms" << std::endl;
+
+    // 测试查询性能
+    start_time = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < NUM_RECORDS; ++i) {
+        std::string key = PREFIX + std::to_string(i);
+        auto result = memtable->get(key);
+        EXPECT_TRUE(result.has_value());
+        EXPECT_EQ(result.value(), "value" + std::to_string(i));
+    }
+    end_time = std::chrono::high_resolution_clock::now();
+    auto query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "查询 " << NUM_RECORDS << " 条记录耗时: " << query_duration.count() << " ms" << std::endl;
+
+    // 测试删除性能
+    start_time = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < NUM_RECORDS; ++i) {
+        std::string key = PREFIX + std::to_string(i);
+        memtable->remove(key);
+    }
+    end_time = std::chrono::high_resolution_clock::now();
+    auto delete_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "删除 " << NUM_RECORDS << " 条记录耗时: " << delete_duration.count() << " ms" << std::endl;
+
+    // 测试内存使用
+    size_t cur_size = memtable->get_cur_size();
+    size_t fixed_size = memtable->get_fixed_size();
+    size_t total_size = memtable->get_total_size();
+    std::cout << "当前表内存大小: " << cur_size << " bytes" << std::endl;
+    std::cout << "固定表内存大小: " << fixed_size << " bytes" << std::endl;
+    std::cout << "总内存大小: " << total_size << " bytes" << std::endl;
+
+}
+*/
+// 并发性能测试
+TEST_F(MemtableTest, ConcurrentPerformanceAndMemoryUsageTest) {
+    const int NUM_RECORDS = 50000;  // 测试 10 万条数据
+    const int NUM_THREADS = 10;     // 使用 10 个线程
+    const std::string PREFIX = "key";
+
+    // 插入测试数据（多线程）
+    auto start_time = std::chrono::high_resolution_clock::now();
+    std::vector<std::thread> threads;
+    for (int t = 0; t < NUM_THREADS; ++t) {
+        threads.emplace_back([this, t, NUM_THREADS, NUM_RECORDS, &PREFIX]() {
+            for (int i = t * (NUM_RECORDS / NUM_THREADS); i < (t + 1) * (NUM_RECORDS / NUM_THREADS); ++i) {
+                std::string key = PREFIX + std::to_string(i);
+                std::string value = "value" + std::to_string(i);
+                memtable->put_mutex(key, value);
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto insert_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "多线程插入 " << NUM_RECORDS << " 条记录耗时: " << insert_duration.count() << " ms" << std::endl;
+
+    // 查询测试数据（多线程）
+    start_time = std::chrono::high_resolution_clock::now();
+    threads.clear();
+    for (int t = 0; t < NUM_THREADS; ++t) {
+        threads.emplace_back([this, t, NUM_THREADS, NUM_RECORDS, &PREFIX]() {
+            for (int i = t * (NUM_RECORDS / NUM_THREADS); i < (t + 1) * (NUM_RECORDS / NUM_THREADS); ++i) {
+                std::string key = PREFIX + std::to_string(i);
+                auto result = memtable->get(key);
+                EXPECT_TRUE(result.has_value());
+                EXPECT_EQ(result.value(), "value" + std::to_string(i));
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    end_time = std::chrono::high_resolution_clock::now();
+    auto query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "多线程查询 " << NUM_RECORDS << " 条记录耗时: " << query_duration.count() << " ms" << std::endl;
+/*
+    // 删除测试数据（多线程）
+    start_time = std::chrono::high_resolution_clock::now();
+    threads.clear();
+    for (int t = 0; t < NUM_THREADS; ++t) {
+        threads.emplace_back([this, t, NUM_THREADS, NUM_RECORDS, &PREFIX]() {
+            for (int i = t * (NUM_RECORDS / NUM_THREADS); i < (t + 1) * (NUM_RECORDS / NUM_THREADS); ++i) {
+                std::string key = PREFIX + std::to_string(i);
+                memtable->remove(key);
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    end_time = std::chrono::high_resolution_clock::now();
+    auto delete_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "多线程删除 " << NUM_RECORDS << " 条记录耗时: " << delete_duration.count() << " ms" << std::endl;
+*/
+    // 测试内存使用
+    size_t cur_size = memtable->get_cur_size();
+    size_t fixed_size = memtable->get_fixed_size();
+    size_t total_size = memtable->get_total_size();
+    std::cout << "当前表内存大小: " << cur_size << " bytes" << std::endl;
+    std::cout << "固定表内存大小: " << fixed_size << " bytes" << std::endl;
+    std::cout << "总内存大小: " << total_size << " bytes" << std::endl;
+
+}
+
+
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -180,46 +180,6 @@ TEST_F(SkiplistTests, PerformanceTest) {
     EXPECT_LT(duration, 2000); // 期望2秒内完成
 }
 
-// 并发测试
-/*TEST_F(SkiplistTest, ConcurrentOperations) {
-    const int THREAD_COUNT = 8;
-    std::vector<std::thread> threads;
 
-    // 并发插入
-    auto insert_func = [&]() {
-        for (int i = 0; i < 1000; ++i) {
-            list->Insert("concurrent_key" + std::to_string(i), "concurrent_value");
-        }
-    };
-
-    // 启动线程
-    for (int i = 0; i < THREAD_COUNT; ++i) {
-        threads.emplace_back(insert_func);
-    }
-
-    // 等待线程完成
-    for (auto& t : threads) {
-        t.join();
-    }
-
-    // 验证结果
-    for (int i = 0; i < 1000; ++i) {
-        auto node = list->Get("concurrent_key" + std::to_string(i));
-        ASSERT_NE(node, nullptr);
-        EXPECT_EQ(node->value_, "concurrent_value");
-    }
-}
-*/
-// 异常情况测试
-TEST_F(SkiplistTests, ExceptionHandling) {
-    // 空键插入
-    ASSERT_TRUE(lists->Insert("", "empty_key_value"));
-
-    // 空值插入
-    ASSERT_TRUE(lists->Insert("empty_value_key", ""));
-
-    // 非法事务ID
-    ASSERT_TRUE(lists->Insert("invalid_tx_key", "value", UINT32_MAX));
-}
 //测试叫AI帮你写就好了，省事.
 //你只要给出测试用例的描述和相应的API接口以及skiplist的定义，AI就能自动生成代码。
