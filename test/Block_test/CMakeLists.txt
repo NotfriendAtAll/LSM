@@ -1,13 +1,17 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.30)
+cmake_policy(SET CMP0167 NEW)  # 启用NEW行为，直接使用BoostConfig.cmake
 project(LSM_Block_Test)
-
 # 设置 C++ 标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
 
 # 查找 GTest 包
 find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
+
+# 修改这里：使用具体的 stacktrace 组件名
+find_package(Boost REQUIRED COMPONENTS stacktrace_basic)
 
 # 添加源文件
 set(SOURCE_FILES
@@ -21,11 +25,12 @@ add_executable(block_test
     ${SOURCE_FILES}
 )
 
-# 链接 Google Test 库
+# 链接库 - 使用正确的目标名
 target_link_libraries(block_test
     GTest::GTest
     GTest::Main
     pthread
+    Boost::stacktrace_basic
 )
 
 # 添加头文件路径

@@ -1,31 +1,27 @@
 #include "../include/BlockIterator.h"
 #include "../include/Block.h"
+#include <boost/stacktrace.hpp>
+#include <boost/stacktrace/stacktrace.hpp>
 #include <optional>
-#include <sys/types.h>
+#include <utility>
 
-BlockIterator::BlockIterator()
-    : block(nullptr), current_index(0), tranc_id_(0) {}
-BlockIterator::BlockIterator(std::shared_ptr<Block> block_,
-                           const std::string &key, size_t index,uint64_t tranc_id)
-    : block(block_),current_index(index),tranc_id_(tranc_id) {  // 初始化为0
-    if (!block) {
-        return;
-    }
-    
-    if (!key.empty()) {
-        auto iter = block->get_idx_binary(key);
-        if (iter.has_value()) {
-            current_index = iter.value();
-        } else {
-            current_index = block->Offset_.size();
-        }
-    } else if (index < block->Offset_.size()) {
-        current_index = index;
-    }
-    
-    if (current_index < block->Offset_.size()) {
-        update_current();
-    }
+BlockIterator::BlockIterator() : block(nullptr), current_index(0), tranc_id_(0) {}
+BlockIterator::BlockIterator(std::shared_ptr<Block> block_, const std::string& key,
+                             uint64_t tranc_id)
+    : block(block_), tranc_id_(tranc_id) {  // 初始化为0
+  if (!block) {
+    return;
+  }
+  auto iter = block->get_idx_binary(key, tranc_id);
+  if (iter.has_value()) {
+    current_index = iter.value();
+  } else {
+    current_index = block->Offset_.size();
+  }
+}
+BlockIterator::BlockIterator(std::shared_ptr<Block> block_, size_t index, uint64_t tranc_id)
+    : block(block_), current_index(index), tranc_id_(tranc_id) {
+  skip_by_tranc_id();  // 跳过不可见的事务
 }
 
 bool BlockIterator::is_end() {
@@ -34,41 +30,64 @@ bool BlockIterator::is_end() {
   }
   return true;
 }
-BlockIterator::con_pointer BlockIterator::operator->() const {
+BlockIterator::con_pointer BlockIterator::operator->() {
   if (cached_value.has_value()) {
     return &(*cached_value);
   }
-update_current();
+  update_current();
   return &(*cached_value);
 }
+BlockIterator& BlockIterator::operator++() {
+  if (block && current_index < block->Offset_.size()) {
+    current_index++;
+    update_current();
+    skip_by_tranc_id();  // 跳过不可见的事务
+  }
+  return *this;
+}
+BlockIterator::value_type BlockIterator::operator*() {
+  if (!cached_value.has_value()) {
+    update_current();
+  }
+  if (!cached_value.has_value()) {
+    throw std::runtime_error("Dereferencing invalid iterator");
+  }
+  return *cached_value;
+}
 
-bool BlockIterator::operator!=(const BlockIterator &other) const {
-  if (block&&other.block) {
-    return !(block==other.block&&current_index==other.current_index);
-}
-return true;
-}
-bool BlockIterator::operator==(const BlockIterator &other) const {
-  if (block&&other.block) {
-    return block==other.block&&current_index==other.current_index;
+bool BlockIterator::operator==(const BlockIterator& other) const {
+  if (block && other.block) {
+    return block == other.block && current_index == other.current_index;
+  }
+  if (block == nullptr && other.block == nullptr) {
+    return true;  // 如果两个迭代器都为空，则认为它们相等
   }
   return false;
+  // 如果一个为空而另一个不为空，则认为它们不相等
 }
 
-BlockIterator& BlockIterator::operator++() {
-    if (block && current_index < block->Offset_.size()) {
-        ++current_index;
-        update_current();
-    }
-    return *this;
+bool BlockIterator::operator!=(const BlockIterator& other) const {
+  return !(*this == other);
 }
-void BlockIterator::update_current() const {
-    cached_value = std::nullopt;  // 每次都清空缓存
-    if (block && current_index < block->Offset_.size()) {
-        auto offset = block->Offset_[current_index];
-        auto entry = block->get_entry(offset);
-        cached_value = std::make_pair(entry.key, entry.value);
-    }
+
+BlockIterator::value_type BlockIterator::getValue() const {
+  if (current_index < 0 || current_index > block->Offset_.size()) {
+    throw std::out_of_range("Index out of range in BlockIterator");
+  }
+  auto offset = block->Offset_[current_index];
+  auto entry  = block->get_entry(offset, current_index);
+  return std::make_pair(entry->key, entry->value);
+}
+size_t BlockIterator::getIndex() const {
+  return current_index;
+}
+void BlockIterator::update_current() {
+  cached_value = std::nullopt;  // 每次都清空缓存
+  if (block && current_index < block->Offset_.size()) {
+    auto offset  = block->Offset_[current_index];
+    auto entry   = block->get_entry(offset, current_index);
+    cached_value = std::make_pair(entry->key, entry->value);
+  }
 }
 void BlockIterator::skip_by_tranc_id() {
   if (tranc_id_ == 0) {
@@ -77,27 +96,10 @@ void BlockIterator::skip_by_tranc_id() {
   }
   while (current_index < block->Offset_.size()) {
     auto offset = block->Offset_[current_index];
-    auto entry = block->get_entry(offset);
-    if (entry.tranc_id != tranc_id_) {
+    auto entry  = block->get_entry(offset, current_index);
+    if (entry->tranc_id < tranc_id_) {
       break;
     }
     ++current_index;
   }
-}
-BlockIterator::value_type BlockIterator::operator*() const {
-    if (!cached_value.has_value()) {
-        update_current();
-    }
-    if (!cached_value.has_value()) {
-        throw std::runtime_error("Dereferencing invalid iterator");
-    }
-    return *cached_value;
-}
-BlockIterator::value_type BlockIterator::getValue() const {
-  auto offset = block->Offset_[current_index];
-  auto entry = block->get_entry(offset);
-  return {entry.key, entry.value};
-}
-  size_t BlockIterator::getIndex() const {
-  return current_index;
 }

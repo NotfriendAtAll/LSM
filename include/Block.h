@@ -2,6 +2,7 @@
 #include "Skiplist.h"
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,9 +12,7 @@ class Block : public std::enable_shared_from_this<Block> {
  public:
   friend class BlockIterator;
   Block();
-  Block(std::size_t capacity);
-  Block(const Block&)                          = delete;
-  Block&               operator=(const Block&) = delete;
+  explicit Block(std::size_t capacity);
   std::vector<uint8_t> encode();
 
   std::shared_ptr<Block> decode(const std::vector<uint8_t>& encoded, bool with_hash = false);
@@ -26,10 +25,13 @@ class Block : public std::enable_shared_from_this<Block> {
   std::optional<uint64_t>             get_tranc_id(const std::size_t offset) const;
   std::optional<std::string>          get_value_binary(const std::string& key);
   std::pair<std::string, std::string> get_first_and_last_key();
-  bool                                add_entry(const std::string& key, const std::string& value);
-  bool                                is_empty() const;
-  BlockIterator                       begin();
-  BlockIterator                       end();
+  bool          add_entry(const std::string& key, const std::string& value, uint64_t tranc_id);
+  bool          is_empty() const;
+  BlockIterator begin();
+  BlockIterator end();
+  // BlockIterator                       current_iterator();
+  std::optional<std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
+  get_prefix_iterator(std::string key, uint64_t tranc_id);
 
  private:
   std::vector<uint8_t>  Data_;
@@ -40,8 +42,7 @@ class Block : public std::enable_shared_from_this<Block> {
     std::string value;
     uint64_t    tranc_id;
   };
-
-  std::string get_key(const std::size_t offset) const;
-  std::string get_value(const std::size_t offset) const;
-  Entry       get_entry(std::size_t offset);
+  std::string            get_key(const std::size_t offset) const;
+  std::string            get_value(const std::size_t offset) const;
+  std::shared_ptr<Entry> get_entry(std::size_t offset, std::size_t index);
 };

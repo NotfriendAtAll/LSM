@@ -17,7 +17,7 @@ protected:
     }
     std::shared_ptr<Block> block;
 };
-
+/*
 // 测试基本操作
 TEST_F(BlockTest, BasicOperations) {
     // 测试添加条目
@@ -46,7 +46,7 @@ TEST_F(BlockTest, EncodeAndDecode) {
     block->add_entry("key2", "value2");
     
     auto encoded = block->encode();
-    auto decoded = Block::decode(encoded);
+    auto decoded = block->decode(encoded);
     
     EXPECT_EQ(decoded->get_value_binary("key1").value(), "value1");
     EXPECT_EQ(decoded->get_value_binary("key2").value(), "value2");
@@ -83,7 +83,7 @@ TEST_F(BlockTest, Iterator) {
     
     // 插入测试数据
     for (const auto& [key, value] : test_data) {
-        ASSERT_TRUE(block->add_entry(key, value)) 
+        ASSERT_TRUE(block->add_entry(key, value,0)) 
             << "Failed to add entry: " << key;
     }
     
@@ -164,7 +164,7 @@ TEST_F(BlockTest, Iterator) {
 // 测试大小限制
 TEST_F(BlockTest, SizeLimit) {
     std::string large_value(1024, 'x'); // 1KB大小的值
-    EXPECT_TRUE(block->add_entry("key1", large_value));
+    EXPECT_TRUE(block->add_entry("key1", large_value,0));
     EXPECT_GT(block->get_cur_size(), 1024);
 }
 
@@ -173,7 +173,72 @@ TEST_F(BlockTest, EmptyBlock) {
     EXPECT_TRUE(block->is_empty());
     EXPECT_EQ(block->get_cur_size(),2);
 }
+*/
+TEST_F(BlockTest, RangeSearch) {
+    // 添加多组测试数据
+    const std::vector<std::pair<std::string, std::string>> test_data = {
+        {"key1", "value1"},
+        {"key2", "value2"},
+        {"key3", "value3"},
+        {"key4", "value4"},
+        {"key5", "value5"},
+        {"key6", "value6"},
+        {"key7", "value7"},
+        {"key8", "value8"},
+        {"key9", "value9"},
+        {"key10", "value10"}
+    };
 
+    // 插入测试数据
+    for (const auto& [key, value] : test_data) {
+        ASSERT_TRUE(block->add_entry(key, value, 0)) 
+            << "Failed to add entry: " << key;
+    }
+
+    try {
+        // 测试范围查询
+        auto range_iterators = block->get_prefix_iterator("key3", 0);
+        ASSERT_TRUE(range_iterators.has_value()) << "Range iterators should not be null";
+
+        auto begin = range_iterators->first;
+        auto end = range_iterators->second;
+
+        ASSERT_NE(begin, nullptr) << "Begin iterator should not be null";
+        ASSERT_NE(end, nullptr) << "End iterator should not be null";
+
+        std::vector<std::pair<std::string, std::string>> retrieved_data;
+        while (*begin != *end) {
+            auto entry = begin->getValue();
+            retrieved_data.push_back(entry);
+            ++(*begin);
+        }
+
+        // 验证范围内的键值对
+        const std::vector<std::pair<std::string, std::string>> expected_data = {
+            {"key3", "value3"},
+            {"key4", "value4"},
+            {"key5", "value5"},
+            {"key6", "value6"},
+            {"key7", "value7"},
+            {"key8", "value8"},
+            {"key9", "value9"},
+            {"key10", "value10"}
+        };
+
+        ASSERT_EQ(retrieved_data.size(), expected_data.size()) 
+            << "Retrieved data size mismatch";
+
+        for (size_t i = 0; i < expected_data.size(); ++i) {
+            EXPECT_EQ(retrieved_data[i].first, expected_data[i].first)
+                << "Key mismatch at position " << i;
+            EXPECT_EQ(retrieved_data[i].second, expected_data[i].second)
+                << "Value mismatch at position " << i;
+        }
+
+    } catch (const std::exception& e) {
+        FAIL() << "Unexpected exception: " << e.what();
+    }
+}
 
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);

@@ -2,7 +2,10 @@
 #include "../include/BlockIterator.h"
 #include <cstddef>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
+#include <string>
+#include <utility>
 
 class BlockIterator;
 Block::Block(std::size_t capacity) : capcity(capacity) {}
@@ -141,14 +144,15 @@ std::pair<std::string, std::string> Block::get_first_and_last_key() {
   std::string last_key  = get_key(Offset_[Offset_.size() - 1]);
   return {first_key, last_key};
 }
-bool Block::add_entry(const std::string& key, const std::string& value) {
+bool Block::add_entry(const std::string& key, const std::string& value, uint64_t tranc_id) {
   if ((get_cur_size() + key.size() + value.size() + 3 * sizeof(uint16_t) > capcity) &&
       !Offset_.empty()) {
     return false;
   }
   // 计算entry大小：key长度(2B) + key + value长度(2B) + value
-  size_t entry_size = sizeof(uint16_t) + key.size() + sizeof(uint16_t) + value.size();
-  size_t old_size   = Data_.size();
+  size_t entry_size =
+      sizeof(uint16_t) + key.size() + sizeof(uint16_t) + value.size() + sizeof(uint64_t);
+  size_t old_size = Data_.size();
   Data_.resize(old_size + entry_size);
 
   // 写入key长度
@@ -165,7 +169,8 @@ bool Block::add_entry(const std::string& key, const std::string& value) {
   // 写入value
   memcpy(Data_.data() + old_size + sizeof(uint16_t) + key_len + sizeof(uint16_t), value.data(),
          value_len);
-
+  memcpy(Data_.data() + old_size + sizeof(uint16_t) + key_len + sizeof(uint16_t) + value_len,
+         &tranc_id, sizeof(uint64_t));
   // 记录偏移
   Offset_.push_back(old_size);
   return true;
@@ -175,19 +180,34 @@ bool Block::is_empty() const {
 }
 BlockIterator Block::begin() {
   auto shared = shared_from_this();
-  return BlockIterator(shared, "", 0);
+  return BlockIterator(shared, 0, 0);
 }
 BlockIterator Block::end() {
   auto shared = shared_from_this();
-  return BlockIterator(shared, "", Offset_.size());
+  return BlockIterator(shared, Offset_.size(), 0);
 }
 
+std::optional<std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
+Block::get_prefix_iterator(std::string key, uint64_t tranc_id) {
+  auto result1 = get_idx_binary(key, tranc_id);
+  if (!result1.has_value()) {
+    return std::nullopt;
+  }
+  auto result2 = get_idx_binary(key + '\xff', tranc_id);
+  if (!result2.has_value()) {
+    return std::make_pair(
+        std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id),
+        std::make_shared<BlockIterator>(shared_from_this(), Offset_.size(), tranc_id));
+  }
+  auto begin = std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id);
+  auto end   = std::make_shared<BlockIterator>(shared_from_this(), result2.value(), tranc_id);
+  return std::make_pair(begin, end);
+}
 std::string Block::get_key(const std::size_t offset) const {
   uint16_t key_len;
   memcpy(&key_len, Data_.data() + offset, sizeof(uint16_t));
-  std::string key(key_len, '\0');
-  memcpy(key.data(), Data_.data() + offset + sizeof(uint16_t), key_len);
-  return key;
+  return std::string(reinterpret_cast<const char*>(Data_.data() + offset + sizeof(uint16_t)),
+                     key_len);
 }
 std::string Block::get_value(const std::size_t offset) const {
   uint16_t key_len;
@@ -199,12 +219,12 @@ std::string Block::get_value(const std::size_t offset) const {
          value_len);
   return value;
 }
-Block::Entry Block::get_entry(std::size_t offset) {
-  if (offset >= Offset_.size() || offset < 0 || Offset_.empty()) {
+std::shared_ptr<Block::Entry> Block::get_entry(std::size_t offset, size_t index) {
+  if (index > Offset_.size() || offset < 0 || Offset_.empty()) {
     throw std::out_of_range("Index out of range");
   }
-  Entry entry;
-  entry.key   = get_key(offset);
-  entry.value = get_value(offset);
+  auto entry   = std::make_shared<Entry>();
+  entry->key   = get_key(offset);
+  entry->value = get_value(offset);
   return entry;
 }
