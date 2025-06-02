@@ -38,10 +38,10 @@ bool SkiplistIterator::operator*() const {
 }
 SkiplistIterator SkiplistIterator::operator+=(int offset) const {
   SkiplistIterator result = *this;
-  for (int i = 0; i < offset&&result.valid(); ++i) {
-  ++result;
+  for (int i = 0; i < offset && result.valid(); ++i) {
+    ++result;
   }
-return  result;
+  return result;
 }
 bool SkiplistIterator::valid() const {
   return current != nullptr;
@@ -197,7 +197,6 @@ std::size_t Skiplist::getnodecount() {
   return nodecount;
 }
 
-
 auto Skiplist::seekToFirst() {
   return head->forward[0];
 }  // 定位到第一个元素
@@ -251,12 +250,11 @@ void Skiplist::set_status(Global_::SkiplistStatus status) {
   cur_status = status;
 }
 
-Global_::SkiplistStatus Skiplist::get_status()const {
+Global_::SkiplistStatus Skiplist::get_status() const {
   return cur_status;
 }
 
 thread_local std::mt19937 Skiplist::gen(std::random_device{}());
-
 
 int Skiplist::random_level() {
   static constexpr double P     = 0.25;  // 每一层的概率
