@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 cmake_policy(SET CMP0167 NEW)  # 启用NEW行为，直接使用BoostConfig.cmake
 project(LSM_Block_Test)
 # 设置 C++ 标准
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
@@ -16,7 +16,7 @@ find_package(Boost REQUIRED COMPONENTS stacktrace_basic)
 # 添加源文件
 set(SOURCE_FILES
     ../../src/Block.cpp
-    ../../src/Blocklterator.cpp
+    ../../src/BlockIterator.cpp
 )
 
 # 添加测试文件

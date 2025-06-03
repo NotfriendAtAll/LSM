@@ -5,7 +5,6 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <utility>
 
 class BlockIterator;
 Block::Block(std::size_t capacity) : capcity(capacity) {}
@@ -107,6 +106,62 @@ std::optional<size_t> Block::get_idx_binary(const std::string& key, uint64_t tra
       right = mid - 1;
     }
   }
+  // 如果没有找到完全匹配的键，返回 std::nullopt
+  return std::nullopt;
+}
+
+std::optional<size_t> Block::get_prefix_begin_idx_binary(const std::string& key,
+                                                         uint64_t           tranc_id) {
+  if (Offset_.empty()) {
+    return std::nullopt;
+  }
+  // 二分查找
+  size_t left  = 0;
+  size_t right = Offset_.size() - 1;
+  while (left <= right) {
+    size_t      mid     = left + (right - left) / 2;
+    std::string mid_key = get_key(Offset_[mid]);
+    if (mid_key == key) {
+      if (get_tranc_id(Offset_[mid]).value() <= tranc_id)
+        return mid;
+    } else if (mid_key < key) {
+      left = mid + 1;
+    } else {
+      right = mid - 1;
+    }
+  }
+  auto new_mid_key = get_key(Offset_[left - 1]);
+  if (new_mid_key.find(key) == 0 && get_tranc_id(Offset_[left - 1]).value() <= tranc_id) {
+    // 如果找到的键是以给定前缀开头的，返回该索引
+    return left - 1;
+  }
+  // 如果没有找到完全匹配的键，返回 std::nullopt
+  return std::nullopt;
+}
+std::optional<size_t> Block::get_prefix_end_idx_binary(const std::string& key, uint64_t tranc_id) {
+  if (Offset_.empty()) {
+    return std::nullopt;
+  }
+  // 二分查找
+  size_t left  = 0;
+  size_t right = Offset_.size() - 1;
+  while (left <= right) {
+    size_t      mid     = left + (right - left) / 2;
+    std::string mid_key = get_key(Offset_[mid]);
+    if (mid_key == key) {
+      return mid;
+    } else if (mid_key < key) {
+      left = mid + 1;
+    } else {
+      right = mid - 1;
+    }
+  }
+  auto new_mid_key = get_key(Offset_[right + 1]);
+  if (new_mid_key.find(key) == 0 && get_tranc_id(Offset_[right + 1]).value() <= tranc_id) {
+    // 如果找到的键是以给定前缀开头的，返回该索引
+    return right + 1;
+  }
+  // 如果没有找到完全匹配的键，返回 std::nullopt
   return std::nullopt;
 }
 std::size_t Block::get_offset(const std::size_t index) {
@@ -178,6 +233,14 @@ bool Block::add_entry(const std::string& key, const std::string& value, uint64_t
 bool Block::is_empty() const {
   return Data_.empty() && Offset_.empty();
 }
+
+BlockIterator Block::get_iterator(const std::string& key, uint64_t tranc_id) {
+  auto idx = get_idx_binary(key, tranc_id);
+  if (!idx.has_value()) {
+    return BlockIterator(shared_from_this(), Offset_.size(), tranc_id);
+  }
+  return BlockIterator(shared_from_this(), idx.value(), tranc_id);
+}
 BlockIterator Block::begin() {
   auto shared = shared_from_this();
   return BlockIterator(shared, 0, 0);
@@ -189,18 +252,17 @@ BlockIterator Block::end() {
 
 std::optional<std::pair<std::shared_ptr<BlockIterator>, std::shared_ptr<BlockIterator>>>
 Block::get_prefix_iterator(std::string key, uint64_t tranc_id) {
-  auto result1 = get_idx_binary(key, tranc_id);
+  auto result1 = get_prefix_begin_idx_binary(key, tranc_id);
   if (!result1.has_value()) {
     return std::nullopt;
   }
-  auto result2 = get_idx_binary(key + '\xff', tranc_id);
+  auto result2 = get_prefix_end_idx_binary(key + '\xff', tranc_id);
+  auto begin   = std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id);
   if (!result2.has_value()) {
     return std::make_pair(
-        std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id),
-        std::make_shared<BlockIterator>(shared_from_this(), Offset_.size(), tranc_id));
+        begin, std::make_shared<BlockIterator>(shared_from_this(), Offset_.size(), tranc_id));
   }
-  auto begin = std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id);
-  auto end   = std::make_shared<BlockIterator>(shared_from_this(), result2.value(), tranc_id);
+  auto end = std::make_shared<BlockIterator>(shared_from_this(), result2.value(), tranc_id);
   return std::make_pair(begin, end);
 }
 std::string Block::get_key(const std::size_t offset) const {

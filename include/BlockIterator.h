@@ -7,9 +7,12 @@
 #include <utility>
 
 class Block;
+class BlockIterator;
+bool operator==(const BlockIterator& lhs, const BlockIterator& rhs) noexcept;
 
 class BlockIterator {
  public:
+  friend bool operator==(const BlockIterator& lhs, const BlockIterator& rhs) noexcept;
   // 标准迭代器类型定义
   using iterator_category = std::forward_iterator_tag;
   using value_type        = std::pair<std::string, std::string>;
@@ -32,8 +35,7 @@ class BlockIterator {
   BlockIterator  operator++(int) = delete;
   value_type     operator*();
 
-  bool       operator==(const BlockIterator& other) const;
-  bool       operator!=(const BlockIterator& other) const;
+  auto       operator<=>(const BlockIterator& rhs) const -> std::strong_ordering;
   value_type getValue() const;
   size_t     getIndex() const;
 

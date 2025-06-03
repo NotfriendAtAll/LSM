@@ -2,11 +2,8 @@
 #include <memory>
 #include <optional>
 
-bool Node::operator>(const Node& other) const {
-  return this->key_ > other.key_;
-}
-bool Node::operator<(const Node& other) const {
-  return this->key_ < other.key_;
+auto Node::operator<=>(const Node& other) const {
+  return key_ <=> other.key_;
 }
 
 SkiplistIterator::SkiplistIterator(std::shared_ptr<Node> skiplist) {
@@ -19,22 +16,19 @@ BaseIterator& SkiplistIterator::operator++() {
   }
   return *this;
 }
-bool SkiplistIterator::operator==(const BaseIterator& other) const {
+auto SkiplistIterator::operator<=>(const BaseIterator& other) const {
   if (other.type() != IteratorType::SkiplistIterator) {
-    return false;
+    return std::strong_ordering::less;
   }
   const SkiplistIterator& other_skiplist = static_cast<const SkiplistIterator&>(other);
-  return current == other_skiplist.current;
+  return current <=> other_skiplist.current;
 }
-bool SkiplistIterator::operator!=(const BaseIterator& other) const {
-  if (other.type() != IteratorType::SkiplistIterator) {
-    return true;
-  }
-  const SkiplistIterator& other_skiplist = static_cast<const SkiplistIterator&>(other);
-  return current != other_skiplist.current;
+bool operator==(const SkiplistIterator& lhs, const SkiplistIterator& rhs) noexcept {
+  return lhs.current == rhs.current;
 }
-bool SkiplistIterator::operator*() const {
-  return valid();
+
+SkiplistIterator::valuetype SkiplistIterator::operator*() const {
+  return {current->key_, current->value_};
 }
 SkiplistIterator SkiplistIterator::operator+=(int offset) const {
   SkiplistIterator result = *this;
@@ -222,7 +216,7 @@ SkiplistIterator Skiplist::prefix_serach_begin(const std::string& key, uint64_t 
       current = current->forward[i];
     }
   }
-  if (current->forward[0]) {
+  if (current->forward[0] && current->forward[0]->transaction_id <= transaction_id) {
     return SkiplistIterator(current->forward[0]);
   }
   return SkiplistIterator(nullptr);
