@@ -168,13 +168,13 @@ Block Layout:
 ## 环境要求
 
 ### 系统要求
-- **操作系统**：Linux（推荐 Ubuntu 18.04+）、macOS 10.14+
-- **编译器**：GCC 7.0+ 或 Clang 6.0+
+- **操作系统**：Linux（推荐 Ubuntu 22.04+）、macOS 10.14+
+- **编译器**：GCC 14.2+ 或 Clang 18.0+
 - **C++ 标准**：C++17 或更高版本
 
 ### 依赖项
-- **CMake**：3.10 或更高版本
-- **GoogleTest**：1.10.0 或更高版本
+- **CMake**：3.20 或更高版本
+- **GoogleTest**：1.14.0 或更高版本
 - **其他**：pthread（多线程支持）
 
 ### 安装依赖
@@ -236,6 +236,9 @@ cmake .. -DENABLE_COVERAGE=ON
 
 # 启用静态分析
 cmake .. -DENABLE_STATIC_ANALYSIS=ON
+
+# 启用 ASAN（Address Sanitizer）
+cmake .. -DENABLE_ASAN=ON
 ```
 
 ## 测试
@@ -265,10 +268,10 @@ graph TB
 
 ### 运行测试
 
-**运行所有测试：**
+**运行Temp测试：**
 ```bash
-cd build
-ctest --verbose
+cmake -G Ninja -B build
+./build/...test
 ```
 
 **运行特定模块测试：**
@@ -310,10 +313,10 @@ open coverage/index.html
 
 | 操作类型 | QPS | 延迟 (P99) | 内存使用 |
 |---------|-----|-----------|---------|
-| 随机写入 | 50,000 | 2.5ms | 256MB |
-| 顺序写入 | 80,000 | 1.2ms | 128MB |
-| 随机读取 | 30,000 | 1.8ms | - |
-| 范围查询 | 15,000 | 5.2ms | - |
+| 随机写入 | 50,000 | - | - |
+| 顺序写入 | 80,000 | - | - |
+| 随机读取 | 30,000 | - | - |
+| 范围查询 | 15,000 | - | - |
 
 ### 运行基准测试
 
@@ -380,7 +383,8 @@ int main() {
 
 - **项目主页**：https://github.com/your-repo/lsm-engine
 - **问题反馈**：https://github.com/your-repo/lsm-engine/issues
-- **邮件联系**：maintainer@example.com
+- **邮件联系1**：trongoneadam@gmail.com
+- **邮件联系2**：1976909647@qq.com
 
 ## 致谢
 
