@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <format>
 
 class MemtableTest : public ::testing::Test {
 protected:
@@ -11,7 +12,7 @@ protected:
     }
     std::shared_ptr<MemTable> memtable;
 };
-/*
+
 // 基本的 put/get 操作测试
 TEST_F(MemtableTest, BasicPutGet) {
     memtable->put("key1", "value1");
@@ -181,7 +182,7 @@ TEST_F(MemtableTest, PerformanceAndMemoryUsageTest) {
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto insert_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "插入 " << NUM_RECORDS << " 条记录耗时: " << insert_duration.count() << " ms" << std::endl;
+    std::cout << std::format("插入 {} 条记录耗时: {} ms", NUM_RECORDS, insert_duration.count()) << std::endl;
 
     // 测试查询性能
     start_time = std::chrono::high_resolution_clock::now();
@@ -193,7 +194,7 @@ TEST_F(MemtableTest, PerformanceAndMemoryUsageTest) {
     }
     end_time = std::chrono::high_resolution_clock::now();
     auto query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "查询 " << NUM_RECORDS << " 条记录耗时: " << query_duration.count() << " ms" << std::endl;
+    std::cout << std::format("查询 {} 条记录耗时: {} ms", NUM_RECORDS, query_duration.count()) << std::endl;
 
     // 测试删除性能
     start_time = std::chrono::high_resolution_clock::now();
@@ -203,18 +204,18 @@ TEST_F(MemtableTest, PerformanceAndMemoryUsageTest) {
     }
     end_time = std::chrono::high_resolution_clock::now();
     auto delete_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "删除 " << NUM_RECORDS << " 条记录耗时: " << delete_duration.count() << " ms" << std::endl;
+    std::cout << std::format("删除 {} 条记录耗时: {} ms", NUM_RECORDS, delete_duration.count()) << std::endl;
 
     // 测试内存使用
     size_t cur_size = memtable->get_cur_size();
     size_t fixed_size = memtable->get_fixed_size();
     size_t total_size = memtable->get_total_size();
-    std::cout << "当前表内存大小: " << cur_size << " bytes" << std::endl;
-    std::cout << "固定表内存大小: " << fixed_size << " bytes" << std::endl;
-    std::cout << "总内存大小: " << total_size << " bytes" << std::endl;
+    std::cout << std::format("当前表内存大小: {} bytes", cur_size) << std::endl;
+    std::cout << std::format("固定表内存大小: {} bytes", fixed_size) << std::endl;
+    std::cout << std::format("总内存大小: {} bytes", total_size) << std::endl;
 
 }
-*/
+
 // 并发性能测试
 TEST_F(MemtableTest, ConcurrentPerformanceAndMemoryUsageTest) {
     const int NUM_RECORDS = 50000;  // 测试 10 万条数据
@@ -238,7 +239,7 @@ TEST_F(MemtableTest, ConcurrentPerformanceAndMemoryUsageTest) {
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto insert_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "多线程插入 " << NUM_RECORDS << " 条记录耗时: " << insert_duration.count() << " ms" << std::endl;
+    std::cout << std::format("多线程插入 {} 条记录耗时: {} ms", NUM_RECORDS, insert_duration.count()) << std::endl;
 
     // 查询测试数据（多线程）
     start_time = std::chrono::high_resolution_clock::now();
@@ -258,8 +259,8 @@ TEST_F(MemtableTest, ConcurrentPerformanceAndMemoryUsageTest) {
     }
     end_time = std::chrono::high_resolution_clock::now();
     auto query_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "多线程查询 " << NUM_RECORDS << " 条记录耗时: " << query_duration.count() << " ms" << std::endl;
-/*
+    std::cout << std::format("多线程查询 {} 条记录耗时: {} ms", NUM_RECORDS, query_duration.count()) << std::endl;
+
     // 删除测试数据（多线程）
     start_time = std::chrono::high_resolution_clock::now();
     threads.clear();
@@ -276,15 +277,15 @@ TEST_F(MemtableTest, ConcurrentPerformanceAndMemoryUsageTest) {
     }
     end_time = std::chrono::high_resolution_clock::now();
     auto delete_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "多线程删除 " << NUM_RECORDS << " 条记录耗时: " << delete_duration.count() << " ms" << std::endl;
-*/
+    std::cout << std::format("多线程删除 {} 条记录耗时: {} ms", NUM_RECORDS, delete_duration.count()) << std::endl;
+
     // 测试内存使用
     size_t cur_size = memtable->get_cur_size();
     size_t fixed_size = memtable->get_fixed_size();
     size_t total_size = memtable->get_total_size();
-    std::cout << "当前表内存大小: " << cur_size << " bytes" << std::endl;
-    std::cout << "固定表内存大小: " << fixed_size << " bytes" << std::endl;
-    std::cout << "总内存大小: " << total_size << " bytes" << std::endl;
+    std::cout << std::format("当前表内存大小: {} bytes", cur_size) << std::endl;
+    std::cout << std::format("固定表内存大小: {} bytes", fixed_size) << std::endl;
+    std::cout << std::format("总内存大小: {} bytes", total_size) << std::endl;
 
 }
 

@@ -1,6 +1,13 @@
 #include "../include/memtable.h"
-#include <future>
-
+#include <mutex>
+bool operator==(const MemTableIterator& lhs, const MemTableIterator& rhs) noexcept {
+  if (lhs.queue_.empty() || rhs.queue_.empty()) {
+    return lhs.queue_.empty() && rhs.queue_.empty();
+  }
+  return lhs.queue_.top().key_ == rhs.queue_.top().key_ &&
+         lhs.queue_.top().value_ == rhs.queue_.top().value_ &&
+         lhs.queue_.top().transaction_id_ == rhs.queue_.top().transaction_id_;
+}
 MemTableIterator::MemTableIterator(std::vector<SerachIterator> iter, uint64_t transaction_id)
     : max_transaction_id(0) {
   for (auto& it : iter) {
@@ -21,24 +28,22 @@ MemTableIterator::MemTableIterator(const SkiplistIterator& iter, uint64_t transa
   list_iter_ = std::make_shared<SkiplistIterator>(iter);
 }
 MemTable::~MemTable() = default;
-bool MemTableIterator::operator==(const BaseIterator& other) const {
+
+auto MemTableIterator::operator<=>(const BaseIterator& other) const {
   if (other.type() != IteratorType::MemTableIterator) {
-    return false;
+    return std::strong_ordering::less;
   }
-  const MemTableIterator& other_iter = dynamic_cast<const MemTableIterator&>(other);
-  if (other_iter.queue_.empty() || queue_.empty()) {
-    return other_iter.queue_.empty() && queue_.empty() ? true : false;
+  const MemTableIterator& other_iter = static_cast<const MemTableIterator&>(other);
+  if (queue_.empty() || other_iter.queue_.empty()) {
+    return queue_.empty() ? (other_iter.queue_.empty() ? std::strong_ordering::equal
+                                                       : std::strong_ordering::less)
+                          : std::strong_ordering::greater;
   }
-  return queue_.top().key_ == other_iter.queue_.top().key_ &&
-         queue_.top().value_ == other_iter.queue_.top().value_ &&
-         queue_.top().transaction_id_ == other_iter.queue_.top().transaction_id_;
-}
-bool MemTableIterator::operator!=(const BaseIterator& other) const {
-  return !(*this == other);
+  return queue_.top() <=> other_iter.queue_.top();
 }
 
-bool MemTableIterator::operator*() const {
-  return !queue_.empty();
+MemTableIterator::valuetype MemTableIterator::operator*() const {
+  return {current_value_->first, current_value_->second};
 }
 BaseIterator::pvaluetype MemTableIterator::operator->() const {
   update_current_key_value();

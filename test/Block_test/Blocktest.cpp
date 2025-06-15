@@ -17,12 +17,12 @@ protected:
     }
     std::shared_ptr<Block> block;
 };
-/*
+
 // 测试基本操作
 TEST_F(BlockTest, BasicOperations) {
     // 测试添加条目
-    EXPECT_TRUE(block->add_entry("key1", "value1"));
-    EXPECT_TRUE(block->add_entry("key2", "value2"));
+    EXPECT_TRUE(block->add_entry("key1", "value1",0));
+    EXPECT_TRUE(block->add_entry("key2", "value2",0));
     
     // 测试获取值
     auto value1 = block->get_value_binary("key1");
@@ -32,9 +32,9 @@ TEST_F(BlockTest, BasicOperations) {
 
 // 测试二分查找
 TEST_F(BlockTest, BinarySearch) {
-    block->add_entry("key1", "value1");
-    block->add_entry("key2", "value2");
-    block->add_entry("key3", "value3");
+    block->add_entry("key1", "value1",0);
+    block->add_entry("key2", "value2",0);
+    block->add_entry("key3", "value3",0);
     
     auto idx = block->get_idx_binary("key2");
     EXPECT_TRUE(idx.has_value());
@@ -42,8 +42,8 @@ TEST_F(BlockTest, BinarySearch) {
 
 // 测试编码解码
 TEST_F(BlockTest, EncodeAndDecode) {
-    block->add_entry("key1", "value1");
-    block->add_entry("key2", "value2");
+    block->add_entry("key1", "value1",0);
+    block->add_entry("key2", "value2",0);
     
     auto encoded = block->encode();
     auto decoded = block->decode(encoded);
@@ -54,8 +54,8 @@ TEST_F(BlockTest, EncodeAndDecode) {
 
 // 测试获取首尾键
 TEST_F(BlockTest, FirstAndLastKey) {
-    block->add_entry("key1", "value1");
-    block->add_entry("key2", "value2");
+    block->add_entry("key1", "value1",0);
+    block->add_entry("key2", "value2",0);
     
     auto keys = block->get_first_and_last_key();
     EXPECT_EQ(keys.first, "key1");
@@ -173,7 +173,7 @@ TEST_F(BlockTest, EmptyBlock) {
     EXPECT_TRUE(block->is_empty());
     EXPECT_EQ(block->get_cur_size(),2);
 }
-*/
+
 TEST_F(BlockTest, RangeSearch) {
     // 添加多组测试数据
     const std::vector<std::pair<std::string, std::string>> test_data = {

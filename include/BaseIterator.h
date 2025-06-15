@@ -5,7 +5,7 @@ enum class IteratorType {
   SkiplistIterator,
   MemTableIterator,
   BlockIterator,
-  SSTableIterator,
+  SstIterator,
 };
 
 class BaseIterator {
@@ -16,12 +16,11 @@ class BaseIterator {
   virtual ~BaseIterator()             = default;
   virtual bool          valid() const = 0;
   virtual BaseIterator& operator++()  = 0;
-  virtual bool          operator==(const BaseIterator& other) const = 0;
-  virtual bool          operator!=(const BaseIterator& other) const = 0;
-  virtual IteratorType  type() const                                = 0;
-  virtual bool          isEnd()                                     = 0;
-  virtual bool          operator*() const                           = 0;
-  virtual uint64_t      getseq() const                              = 0;
+  auto                  operator<=>(const BaseIterator& other) const;
+  virtual IteratorType  type() const      = 0;
+  virtual bool          isEnd()           = 0;
+  virtual valuetype     operator*() const = 0;
+  virtual uint64_t      getseq() const    = 0;
 };
 class SerachIterator {
  public:
@@ -36,6 +35,7 @@ class SerachIterator {
   SerachIterator()  = default;
   ~SerachIterator() = default;
 };
-bool operator<(const SerachIterator& lhs, const SerachIterator& rhs);
+auto operator<=>(const SerachIterator& lhs, const SerachIterator& rhs) -> std::strong_ordering;
+/*bool operator<(const SerachIterator& lhs, const SerachIterator& rhs);
 bool operator>(const SerachIterator& lhs, const SerachIterator& rhs);
-bool operator==(const SerachIterator& lhs, const SerachIterator& rhs);
+bool operator==(const SerachIterator& lhs, const SerachIterator& rhs);*/

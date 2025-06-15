@@ -1,6 +1,6 @@
 CompileFlags:
   Add:
-    - "-std=c++2b"        # 使用 C++23 标准
+    - "-std=c++2b"    # 使用 C++23 标准    
           # 启用 Concepts 支持
     - "-stdlib=libstdc++" # 使用 GCC 标准库
     - "-I/usr/include/c++/14.20"

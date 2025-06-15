@@ -6,18 +6,21 @@
 #include <shared_mutex>
 #include <string>
 
+class MemTableIterator;
+bool operator==(const MemTableIterator& lhs, const MemTableIterator& rhs) noexcept;
+
 class MemTableIterator : public BaseIterator {
  public:
+  friend bool operator==(const MemTableIterator& lhs, const MemTableIterator& rhs) noexcept;
   using valuetype = std::pair<std::string, std::string>;
   MemTableIterator(std::vector<SerachIterator> iter, uint64_t max_transaction_id);
   MemTableIterator(const SkiplistIterator& iter, uint64_t max_transaction_id);
   ~MemTableIterator() = default;
 
   bool valid() const override;
-  bool operator==(const BaseIterator& other) const override;
-  bool operator!=(const BaseIterator& other) const override;
 
-  bool              operator*() const override;
+  auto              operator<=>(const BaseIterator& other) const;
+  valuetype         operator*() const override;
   pvaluetype        operator->() const;
   MemTableIterator& operator++() override;
 
