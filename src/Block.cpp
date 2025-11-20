@@ -1,8 +1,11 @@
 #include "../include/Block.h"
 #include "../include/BlockIterator.h"
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
+#include <print>
 #include <stdexcept>
 #include <string>
 
@@ -12,36 +15,40 @@ Block::Block() : capcity(4096) {
   // 默认构造函数，初始化容量为4096
 }
 
-std::vector<uint8_t> Block::encode() {
-  // 计算总大小：数据段 + 偏移数组(每个偏移2字节) + 元素个数(2字节)
-  size_t total_bytes =
-      Data_.size() * sizeof(uint8_t) + Offset_.size() * sizeof(uint16_t) + sizeof(uint16_t);
-  std::vector<uint8_t> encoded(total_bytes, 0);
+std::vector<uint8_t> Block::encode(bool with_hash) {
+  // Data_ + offsets(uint16_t) + num(uint16_t) [+ hash(uint32_t)]
+  size_t offsets_bytes = Offset_.size() * sizeof(uint16_t);
+  size_t total         = Data_.size() * sizeof(uint8_t) + offsets_bytes + sizeof(uint16_t) +
+                 (with_hash ? sizeof(uint32_t) : 0);
+  std::vector<uint8_t> encoded(total, 0);
 
-  // 1. 复制数据段
   std::memcpy(encoded.data(), Data_.data(), Data_.size() * sizeof(uint8_t));
 
-  // 2. 复制偏移数组
-  size_t offset_pos = Data_.size() * sizeof(uint8_t);
-  std::memcpy(encoded.data() + offset_pos,
-              Offset_.data(),                    // vector 的连续内存起始位置
-              Offset_.size() * sizeof(uint16_t)  // 总字节数
-  );
+  // write offsets as uint16_t (explicit conversion + check)
+  size_t off_pos = Data_.size() * sizeof(uint8_t);
+  memcpy(encoded.data() + off_pos, Offset_.data(), Offset_.size() * sizeof(uint16_t));
 
-  // 3. 写入元素个数
+  // write num elements
   size_t   num_pos      = Data_.size() * sizeof(uint8_t) + Offset_.size() * sizeof(uint16_t);
   uint16_t num_elements = Offset_.size();
-  std::memcpy(encoded.data() + num_pos, &num_elements, sizeof(uint16_t));
+  memcpy(encoded.data() + num_pos, &num_elements, sizeof(uint16_t));
 
+  // write hash if needed (hash over everything before hash)
+  if (with_hash) {
+    uint32_t hash_value = std::hash<std::string_view>{}(std::string_view(
+        reinterpret_cast<const char*>(encoded.data()), encoded.size() - sizeof(uint32_t)));
+    std::memcpy(encoded.data() + encoded.size() - sizeof(uint32_t), &hash_value, sizeof(uint32_t));
+  }
   return encoded;
 }
+
 std::shared_ptr<Block> Block::decode(const std::vector<uint8_t>& encoded, bool with_hash) {
   // 使用 make_shared 创建对象
   auto block = std::make_shared<Block>();
 
   // 1. 安全性检查
-  if (encoded.size() < sizeof(uint16_t)) {
-    throw std::runtime_error("Encoded Data_ too small");
+  if (with_hash && encoded.size() <= sizeof(uint16_t) + sizeof(uint32_t)) {
+    throw std::runtime_error("Encoded data too small");
   }
 
   // 2. 读取元素个数
@@ -61,12 +68,6 @@ std::shared_ptr<Block> Block::decode(const std::vector<uint8_t>& encoded, bool w
   }
   memcpy(&num_elements, encoded.data() + num_elements_pos, sizeof(uint16_t));
 
-  // 3. 验证数据大小
-  size_t required_size = sizeof(uint16_t) + num_elements * sizeof(uint16_t);
-  if (encoded.size() < required_size) {
-    throw std::runtime_error("Invalid encoded Data_ size");
-  }
-
   // 4. 计算各段位置
   size_t offsets_section_start = num_elements_pos - num_elements * sizeof(uint16_t);
 
@@ -81,6 +82,54 @@ std::shared_ptr<Block> Block::decode(const std::vector<uint8_t>& encoded, bool w
 
   return block;
 }
+
+// safe get_key/get_value/get_tranc_id with bounds checks
+std::string Block::get_key(const std::size_t offset) const {
+  if (offset > Offset_[Offset_.size() - 1]) {
+    std::print("Invaild offset to much");
+  }
+  uint16_t key_len;
+  std::memcpy(&key_len, Data_.data() + offset, sizeof(uint16_t));
+  return std::string(reinterpret_cast<const char*>(Data_.data() + offset + sizeof(uint16_t)),
+                     key_len);
+}
+
+std::string Block::get_value(const std::size_t offset) const {
+  if (offset > Offset_[Offset_.size() - 1]) {
+    std::print("Invaild offset to much");
+  }
+  uint16_t key_len;
+  std::memcpy(&key_len, Data_.data() + offset, sizeof(uint16_t));
+  uint16_t value_len;
+  std::memcpy(&value_len, Data_.data() + offset + sizeof(uint16_t) + key_len, sizeof(uint16_t));
+  return std::string(reinterpret_cast<const char*>(Data_.data() + offset + sizeof(uint16_t) +
+                                                   key_len + sizeof(uint16_t)),
+                     value_len);
+}
+std::shared_ptr<Block::Entry> Block::get_entry(std::size_t offset) {
+  if (offset > Offset_[Offset_.size() - 1]) {
+    std::print("Invaild offset to much");
+  }
+  auto key      = get_key(offset);
+  auto value    = get_value(offset);
+  auto tranc_id = get_tranc_id(offset);
+  return std::make_shared<Block::Entry>(Block::Entry{key, value, tranc_id.value()});
+}
+
+std::optional<uint64_t> Block::get_tranc_id(const std::size_t offset) const {
+  if (offset > Offset_[Offset_.size() - 1]) {
+    std::print("Invaild offset to much");
+  }
+  uint16_t key_len;
+  std::memcpy(&key_len, Data_.data() + offset, sizeof(uint16_t));
+  size_t   pos = offset + sizeof(uint16_t) + key_len;
+  uint16_t value_len;
+  std::memcpy(&value_len, Data_.data() + pos, sizeof(uint16_t));
+  pos += sizeof(uint16_t) + value_len;
+  uint64_t tr;
+  std::memcpy(&tr, Data_.data() + pos, sizeof(uint64_t));
+  return tr;
+}
 std::string Block::get_first_key() {
   if (Offset_.empty()) {
     return "";
@@ -93,17 +142,26 @@ std::optional<size_t> Block::get_idx_binary(const std::string& key, uint64_t tra
     return std::nullopt;
   }
   // 二分查找
-  size_t left  = 0;
-  size_t right = Offset_.size() - 1;
-  while (left <= right) {
-    size_t      mid     = left + (right - left) / 2;
+  int left  = 0;
+  int right = Offset_.size();
+  while (left < right) {
+    int         mid     = left + (right - left) / 2;
     std::string mid_key = get_key(Offset_[mid]);
-    if (mid_key == key) {
+    if (mid_key == key && get_tranc_id(Offset_[mid]).value() <= tranc_id) {
       return mid;
     } else if (mid_key < key) {
       left = mid + 1;
     } else {
       right = mid - 1;
+    }
+  }
+  if (left < Offset_.size()) {
+    if (get_key(Offset_[left]) == key && get_tranc_id(Offset_[left]).value() <= tranc_id) {
+      return left;
+    }
+  } else {
+    if (get_key(Offset_[left - 1]) == key && get_tranc_id(Offset_[left]).value() <= tranc_id) {
+      return left - 1;
     }
   }
   // 如果没有找到完全匹配的键，返回 std::nullopt
@@ -112,59 +170,73 @@ std::optional<size_t> Block::get_idx_binary(const std::string& key, uint64_t tra
 
 std::optional<size_t> Block::get_prefix_begin_idx_binary(const std::string& key,
                                                          uint64_t           tranc_id) {
-  if (Offset_.empty()) {
+  if (Offset_.empty())
     return std::nullopt;
-  }
-  // 二分查找
-  size_t left  = 0;
-  size_t right = Offset_.size() - 1;
-  while (left <= right) {
-    size_t      mid     = left + (right - left) / 2;
+
+  // 优先检查完全匹配（并传入 tranc_id）
+  auto exact = get_idx_binary(key, tranc_id);
+  if (exact.has_value())
+    return exact;
+
+  // 二分查找插入点（第一个 >= key）
+  int left  = 0;
+  int right = Offset_.size();
+  while (left < right) {
+    int         mid     = left + (right - left) / 2;
     std::string mid_key = get_key(Offset_[mid]);
-    if (mid_key == key) {
-      if (get_tranc_id(Offset_[mid]).value() <= tranc_id)
-        return mid;
-    } else if (mid_key < key) {
+    if (mid_key < key) {
       left = mid + 1;
     } else {
-      right = mid - 1;
+      right = mid;
     }
   }
-  auto new_mid_key = get_key(Offset_[left - 1]);
-  if (new_mid_key.find(key) == 0 && get_tranc_id(Offset_[left - 1]).value() <= tranc_id) {
-    // 如果找到的键是以给定前缀开头的，返回该索引
-    return left - 1;
+  if (left < Offset_.size()) {
+    if ((get_key(Offset_[left]).rfind(key, 0) != 0) && get_tranc_id(Offset_[left]) <= tranc_id) {
+      return left;
+    }
+  } else {
+    if ((get_key(Offset_[left - 1]).rfind(key, 0) != 0) &&
+        get_tranc_id(Offset_[left - 1]) <= tranc_id) {
+      return left - 1;
+    }
   }
-  // 如果没有找到完全匹配的键，返回 std::nullopt
   return std::nullopt;
 }
+
 std::optional<size_t> Block::get_prefix_end_idx_binary(const std::string& key, uint64_t tranc_id) {
   if (Offset_.empty()) {
     return std::nullopt;
   }
-  // 二分查找
-  size_t left  = 0;
-  size_t right = Offset_.size() - 1;
-  while (left <= right) {
-    size_t      mid     = left + (right - left) / 2;
+  const std::string want = key + '\xff';
+  // 优先检查完全匹配（并传入 tranc_id）
+  auto exact = get_idx_binary(want, tranc_id);
+  if (exact.has_value())
+    return exact;
+  // 二分查找插入点（第一个 <= key）
+  int left  = 0;
+  int right = Offset_.size();
+  while (left < right) {
+    int         mid     = left + (right - left) / 2;
     std::string mid_key = get_key(Offset_[mid]);
-    if (mid_key == key) {
-      return mid;
-    } else if (mid_key < key) {
+    if (mid_key < want) {
       left = mid + 1;
     } else {
-      right = mid - 1;
+      right = mid;
     }
   }
-  auto new_mid_key = get_key(Offset_[right + 1]);
-  if (new_mid_key.find(key) == 0 && get_tranc_id(Offset_[right + 1]).value() <= tranc_id) {
-    // 如果找到的键是以给定前缀开头的，返回该索引
-    return right + 1;
+  if (left == 0) {
+    if ((get_key(Offset_[left]).rfind(key, 0) != 0) && get_tranc_id(Offset_[left]) <= tranc_id) {
+      return left;
+    }
+  } else {
+    if ((get_key(Offset_[left - 1]).rfind(key, 0) != 0) &&
+        get_tranc_id(Offset_[left]) <= tranc_id) {
+      return left;
+    }
   }
-  // 如果没有找到完全匹配的键，返回 std::nullopt
   return std::nullopt;
 }
-std::size_t Block::get_offset(const std::size_t index) {
+std::optional<size_t> Block::get_offset(const std::size_t index) {
   if (index >= Offset_.size()) {
     throw std::out_of_range("Index out of range");
   }
@@ -173,24 +245,15 @@ std::size_t Block::get_offset(const std::size_t index) {
 size_t Block::get_cur_size() const {
   return Data_.size() + Offset_.size() * sizeof(uint16_t) + sizeof(uint16_t);
 }
-std::optional<uint64_t> Block::get_tranc_id(const std::size_t offset) const {
-  uint16_t key_len;
-  memcpy(&key_len, Data_.data() + offset, sizeof(uint16_t));
-  uint16_t value_len;
-  memcpy(&value_len, Data_.data() + offset + sizeof(uint16_t) + key_len, sizeof(uint16_t));
-  uint64_t tranc_id;
-  memcpy(&tranc_id,
-         Data_.data() + offset + sizeof(uint16_t) + key_len + sizeof(uint16_t) + value_len,
-         sizeof(uint64_t));
-  return tranc_id;
-}
+
 std::optional<std::string> Block::get_value_binary(const std::string& key) {
   auto idx = get_idx_binary(key);
-  if (!idx) {
-    return std::nullopt;
+  if (idx.has_value()) {
+    return get_value(Offset_[idx.value()]);
   }
-  return get_value(Offset_[*idx]);
+  return std::nullopt;
 }
+
 std::pair<std::string, std::string> Block::get_first_and_last_key() {
   if (Offset_.empty()) {
     return {"", ""};
@@ -199,12 +262,14 @@ std::pair<std::string, std::string> Block::get_first_and_last_key() {
   std::string last_key  = get_key(Offset_[Offset_.size() - 1]);
   return {first_key, last_key};
 }
-bool Block::add_entry(const std::string& key, const std::string& value, uint64_t tranc_id) {
-  if ((get_cur_size() + key.size() + value.size() + 3 * sizeof(uint16_t) > capcity) &&
+bool Block::add_entry(const std::string& key, const std::string& value, uint64_t tranc_id,
+                      bool force_write) {
+  if ((!force_write) &&
+      (get_cur_size() + key.size() + value.size() + 3 * sizeof(uint16_t) > capcity) &&
       !Offset_.empty()) {
     return false;
   }
-  // 计算entry大小：key长度(2B) + key + value长度(2B) + value
+  // 计算entry大小：key长度(2B) + key + value长度(2B) + value + tranc_id
   size_t entry_size =
       sizeof(uint16_t) + key.size() + sizeof(uint16_t) + value.size() + sizeof(uint64_t);
   size_t old_size = Data_.size();
@@ -224,6 +289,7 @@ bool Block::add_entry(const std::string& key, const std::string& value, uint64_t
   // 写入value
   memcpy(Data_.data() + old_size + sizeof(uint16_t) + key_len + sizeof(uint16_t), value.data(),
          value_len);
+  // 写入tranc_id
   memcpy(Data_.data() + old_size + sizeof(uint16_t) + key_len + sizeof(uint16_t) + value_len,
          &tranc_id, sizeof(uint64_t));
   // 记录偏移
@@ -258,35 +324,6 @@ Block::get_prefix_iterator(std::string key, uint64_t tranc_id) {
   }
   auto result2 = get_prefix_end_idx_binary(key + '\xff', tranc_id);
   auto begin   = std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id);
-  if (!result2.has_value()) {
-    return std::make_pair(
-        begin, std::make_shared<BlockIterator>(shared_from_this(), Offset_.size(), tranc_id));
-  }
-  auto end = std::make_shared<BlockIterator>(shared_from_this(), result2.value(), tranc_id);
+  auto end = std::make_shared<BlockIterator>(shared_from_this(), result2.value(), tranc_id, false);
   return std::make_pair(begin, end);
-}
-std::string Block::get_key(const std::size_t offset) const {
-  uint16_t key_len;
-  memcpy(&key_len, Data_.data() + offset, sizeof(uint16_t));
-  return std::string(reinterpret_cast<const char*>(Data_.data() + offset + sizeof(uint16_t)),
-                     key_len);
-}
-std::string Block::get_value(const std::size_t offset) const {
-  uint16_t key_len;
-  memcpy(&key_len, Data_.data() + offset, sizeof(uint16_t));
-  uint16_t value_len;
-  memcpy(&value_len, Data_.data() + offset + sizeof(uint16_t) + key_len, sizeof(uint16_t));
-  std::string value(value_len, '\0');
-  memcpy(value.data(), Data_.data() + offset + sizeof(uint16_t) + key_len + sizeof(uint16_t),
-         value_len);
-  return value;
-}
-std::shared_ptr<Block::Entry> Block::get_entry(std::size_t offset, size_t index) {
-  if (index > Offset_.size() || offset < 0 || Offset_.empty()) {
-    throw std::out_of_range("Index out of range");
-  }
-  auto entry   = std::make_shared<Entry>();
-  entry->key   = get_key(offset);
-  entry->value = get_value(offset);
-  return entry;
 }
