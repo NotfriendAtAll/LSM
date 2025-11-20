@@ -62,7 +62,3 @@ class FileObj {
 
   void validate_read_bounds(size_t offset, size_t data_size) const;
 };
-/*1. file.h
-主要封装了基础的文件读写操作，比如读取/写入无符号整数、缓冲区读写等。
-一般作为底层工具，方便高效、类型安全地处理二进制数据（比如元数据、数据块头部等）。
-主要用于序列化/反序列化和原始字节级别的文件I/O。*/

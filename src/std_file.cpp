@@ -1,29 +1,61 @@
 #include "../include/std_file.h"
+#include <iostream>
 
 // 打开文件，可选择创建新文件
+#include <filesystem>
+
 bool StdFile::open(const std::string& filename, bool create) {
-  filename_                    = filename;
-  std::ios_base::openmode mode = std::ios::in | std::ios::out | std::ios::binary;
+  filename_ = filename;
+
   if (create) {
-    mode |= std::ios::trunc;
+    // 创建空文件
+    std::ofstream(filename, std::ios::binary | std::ios::trunc).close();
+  } else if (!std::filesystem::exists(filename)) {
+    std::cerr << "File does not exist: " << filename << std::endl;
+    return false;  // 文件不存在，返回错误
   }
-  file_.open(filename, mode);
+
+  // 尝试以读写模式打开
+  file_.open(filename, std::ios::in | std::ios::out | std::ios::binary);
+
+  if (!file_.is_open()) {
+    std::cerr << "Failed to open file: " << filename << std::endl;
+    perror("Error");
+  }
+
   return file_.is_open();
 }
-
-// 创建新文件并写入缓冲区内容
-bool StdFile::create(const std::string& filename, std::vector<uint8_t>& buf) {
+// 创建文件并写入数据
+bool StdFile::create(const std::string& filename, const std::vector<uint8_t>& data) {
   if (!open(filename, true)) {
-    throw std::runtime_error("Failed to open file for writing");
+    return false;
   }
-  if (!buf.empty()) {
-    if (!write(0, buf.data(), buf.size())) {
-      throw std::runtime_error("Failed to write buffer to file");
-    }
+  if (!data.empty()) {
+    file_.seekp(0);
+    file_.write(reinterpret_cast<const char*>(data.data()), data.size());
+    file_.flush();
   }
-  return true;
+  return file_.good();
 }
 
+// 读取数据
+std::vector<uint8_t> StdFile::read(size_t offset = 0, size_t length = SIZE_MAX) {
+  if (!file_.is_open())
+    throw std::runtime_error("File not open");
+
+  size_t file_size = size();
+  if (offset >= file_size)
+    throw std::out_of_range("Offset is beyond file size");
+
+  size_t               read_size = std::min(length, file_size - offset);
+  std::vector<uint8_t> buffer(read_size);
+
+  file_.seekg(offset);
+  file_.read(reinterpret_cast<char*>(buffer.data()), read_size);
+
+  buffer.resize(file_.gcount());  // 调整为实际读取大小
+  return buffer;
+}
 // 关闭文件
 void StdFile::close() {
   if (file_.is_open()) {
@@ -42,26 +74,6 @@ size_t StdFile::size() {
   size_t file_size = file_.tellg();
   file_.seekg(current_pos, std::ios::beg);  // 恢复原位置
   return file_size;
-}
-
-// 从指定偏移读取指定长度内容
-std::vector<uint8_t> StdFile::read(size_t offset, size_t length) {
-  if (!file_.is_open()) {
-    throw std::runtime_error("File not open");
-  }
-  std::vector<uint8_t> buf(length);
-  file_.seekg(0, std::ios::end);
-  size_t file_size = file_.tellg();
-  if (offset > file_size) {
-    throw std::out_of_range("Read offset is out of file size");
-  }
-  size_t read_len = std::min(length, file_size - offset);
-  file_.seekg(offset, std::ios::beg);
-  if (!file_.read(reinterpret_cast<char*>(buf.data()), read_len)) {
-    throw std::runtime_error("Failed to read from file");
-  }
-  buf.resize(read_len);  // 实际读取长度
-  return buf;
 }
 
 // 从指定偏移写入数据

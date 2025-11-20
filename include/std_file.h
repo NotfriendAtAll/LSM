@@ -18,8 +18,9 @@ class StdFile {
   bool open(const std::string& filename, bool create);
 
   // 创建文件
-  bool create(const std::string& filename, std::vector<uint8_t>& buf);
-
+  bool create(const std::string& filename, const std::vector<uint8_t>& buf);
+  // 读取数据
+  std::vector<uint8_t> read(size_t offset, size_t length);
   // 关闭文件
   void close();
 
@@ -28,9 +29,6 @@ class StdFile {
 
   // 写入数据
   bool write(size_t offset, const void* data, size_t size);
-
-  // 读取数据
-  std::vector<uint8_t> read(size_t offset, size_t length);
 
   // 同步到磁盘
   bool sync();

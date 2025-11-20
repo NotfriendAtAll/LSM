@@ -8,6 +8,10 @@ class MmapFile {
   MmapFile() : fd_(-1), mapped_data_(nullptr), file_size_(0) {}
   ~MmapFile() { close(); }
 
+  // 禁止拷贝
+  MmapFile(const MmapFile&)            = delete;
+  MmapFile& operator=(const MmapFile&) = delete;
+
   // 打开文件并映射到内存
   bool open(const std::string& filename, bool create = false);
 
@@ -30,24 +34,14 @@ class MmapFile {
   size_t size() const { return file_size_; }
 
  private:
-  int         fd_;           // 文件描述符
-  void*       mapped_data_;  // 映射的内存地址
-  size_t      file_size_;    // 文件大小
-  std::string filename_;     // 文件名
-
   // 获取映射的内存指针
   void* data() const { return mapped_data_; }
 
   // 创建文件并映射到内存
   bool create_and_map(const std::string& path, size_t size);
 
-  // 禁止拷贝
-  MmapFile(const MmapFile&)            = delete;
-  MmapFile& operator=(const MmapFile&) = delete;
+  int         fd_;           // 文件描述符
+  void*       mapped_data_;  // 映射的内存地址
+  size_t      file_size_;    // 文件大小
+  std::string filename_;     // 文件名
 };
-
-/*封装了**mmap（内存映射文件）**的操作。
-允许将磁盘文件直接映射到内存空间，实现高性能的数据访问（尤其适合大文件或频繁随机读写的场景）。
-提供了打开、创建、读写、同步（sync）、关闭等接口。
-用于那些对性能敏感、需要直接内存操作的场景，比如大数据块的顺序访问或随机访问。
-*/
