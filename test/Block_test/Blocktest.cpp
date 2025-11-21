@@ -2,6 +2,7 @@
 #include "../../include/BlockIterator.h"
 #include <gtest/gtest.h>
 #include <memory>
+#include <print>
 #include <string>
 #include <iostream>
 
@@ -66,9 +67,9 @@ TEST_F(BlockTest, Iterator) {
 
   // 添加多组测试数据
   const std::vector<std::pair<std::string, std::string>> test_data = {
-      {"key1", "value1"}, {"key2", "value2"},  {"key3", "value3"}, {"key4", "value4"},
-      {"key5", "value5"}, {"key6", "value6"},  {"key7", "value7"}, {"key8", "value8"},
-      {"key9", "value9"}, {"key10", "value10"}};
+      {"key1", "value1"}, {"key10", "value10"}, {"key2", "value2"}, {"key3", "value3"},
+      {"key4", "value4"}, {"key5", "value5"},   {"key6", "value6"}, {"key7", "value7"},
+      {"key8", "value8"}, {"key9", "value9"}};
 
   // 插入测试数据
   for (const auto& [key, value] : test_data) {
@@ -160,9 +161,9 @@ TEST_F(BlockTest, EmptyBlock) {
 TEST_F(BlockTest, RangeSearch) {
   // 添加多组测试数据
   const std::vector<std::pair<std::string, std::string>> test_data = {
-      {"key1", "value1"}, {"key11", "value11"}, {"key12", "value12"}, {"key4", "value4"},
-      {"key5", "value5"}, {"key6", "value6"},   {"key7", "value7"},   {"key8", "value8"},
-      {"key9", "value9"}, {"key10", "value10"}};
+      {"key1", "value1"}, {"key10", "value10"}, {"key11", "value11"}, {"key12", "value12"},
+      {"key4", "value4"}, {"key5", "value5"},   {"key6", "value6"},   {"key7", "value7"},
+      {"key8", "value8"}, {"key9", "value9"}};
 
   // 插入测试数据
   for (const auto& [key, value] : test_data) {
@@ -181,15 +182,29 @@ TEST_F(BlockTest, RangeSearch) {
     ASSERT_NE(end, nullptr) << "End iterator should not be null";
 
     std::vector<std::pair<std::string, std::string>> retrieved_data;
+
     while (*begin != *end) {
       auto entry = begin->getValue();
       retrieved_data.push_back(entry);
       ++(*begin);
     }
+    auto range_iterators2 = block->get_prefix_iterator("key9", 0);
+    ASSERT_TRUE(range_iterators2.has_value()) << "Range iterators should not be null";
+
+    auto begin2 = range_iterators2->first;
+    auto end2   = range_iterators2->second;
+
+    std::vector<std::pair<std::string, std::string>> retrieved_data2;
+    while (*begin2 != *end2) {
+      auto entry = begin2->getValue();
+      retrieved_data2.push_back(entry);
+      ++(*begin2);
+    }
 
     // 验证范围内的键值对
     const std::vector<std::pair<std::string, std::string>> expected_data = {
         {"key1", "value1"},
+        {"key10", "value10"},
         {"key11", "value11"},
         {"key12", "value12"},
     };
@@ -200,6 +215,18 @@ TEST_F(BlockTest, RangeSearch) {
       EXPECT_EQ(retrieved_data[i].first, expected_data[i].first)
           << "Key mismatch at position " << i;
       EXPECT_EQ(retrieved_data[i].second, expected_data[i].second)
+          << "Value mismatch at position " << i;
+    }
+    const std::vector<std::pair<std::string, std::string>> expected_data2 = {
+        {"key9", "value9"},
+    };
+
+    ASSERT_EQ(retrieved_data.size(), expected_data.size()) << "Retrieved data size mismatch";
+
+    for (size_t i = 0; i < expected_data2.size(); ++i) {
+      EXPECT_EQ(retrieved_data2[i].first, expected_data2[i].first)
+          << "Key mismatch at position " << i;
+      EXPECT_EQ(retrieved_data2[i].second, expected_data2[i].second)
           << "Value mismatch at position " << i;
     }
 
