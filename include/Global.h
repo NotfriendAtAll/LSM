@@ -1,3 +1,5 @@
+#pragma once
+#include <random>
 namespace Global_ {
 constexpr int    MAX_MEMTABLE_SIZE_PER_TABLE       = 1024 * 1024 * 4;   // 4MB
 constexpr int    MAX_SSTABLE_SIZE                  = 1024 * 1024 * 64;  // 64MB
@@ -12,5 +14,7 @@ enum class SkiplistStatus {
   KFreezing,
   kFrozen,
 };
+
+int generateRandom(int begin = 0, int end = 1000);
 
 }  // namespace Global_
