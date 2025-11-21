@@ -36,6 +36,3 @@ class SerachIterator {
   ~SerachIterator() = default;
 };
 auto operator<=>(const SerachIterator& lhs, const SerachIterator& rhs) -> std::strong_ordering;
-/*bool operator<(const SerachIterator& lhs, const SerachIterator& rhs);
-bool operator>(const SerachIterator& lhs, const SerachIterator& rhs);
-bool operator==(const SerachIterator& lhs, const SerachIterator& rhs);*/
