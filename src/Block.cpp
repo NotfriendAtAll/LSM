@@ -8,6 +8,7 @@
 #include <print>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 class BlockIterator;
 Block::Block(std::size_t capacity) : capcity(capacity) {}
@@ -191,12 +192,13 @@ std::optional<size_t> Block::get_prefix_begin_idx_binary(const std::string& key,
     }
   }
   if (left < Offset_.size()) {
-    if ((get_key(Offset_[left]).rfind(key, 0) != 0) && get_tranc_id(Offset_[left]) <= tranc_id) {
+    if ((get_key(Offset_[left]).rfind(key, 0) == 0) &&
+        get_tranc_id(Offset_[left]).value() <= tranc_id) {
       return left;
     }
   } else {
-    if ((get_key(Offset_[left - 1]).rfind(key, 0) != 0) &&
-        get_tranc_id(Offset_[left - 1]) <= tranc_id) {
+    if ((get_key(Offset_[left - 1]).rfind(key, 0) == 0) &&
+        get_tranc_id(Offset_[left - 1]).value() <= tranc_id) {
       return left - 1;
     }
   }
@@ -218,21 +220,21 @@ std::optional<size_t> Block::get_prefix_end_idx_binary(const std::string& key, u
   while (left < right) {
     int         mid     = left + (right - left) / 2;
     std::string mid_key = get_key(Offset_[mid]);
+    if ((mid + 1 == right) && mid_key.rfind(key, 0) == 0) {
+      if (!(get_tranc_id(Offset_[mid]) <= tranc_id)) {
+        return std::nullopt;
+      }
+      return mid + 1;
+    }
     if (mid_key < want) {
-      left = mid + 1;
+      left = mid;
     } else {
-      right = mid;
+      right = mid - 1;
     }
   }
-  if (left == 0) {
-    if ((get_key(Offset_[left]).rfind(key, 0) != 0) && get_tranc_id(Offset_[left]) <= tranc_id) {
-      return left;
-    }
-  } else {
-    if ((get_key(Offset_[left - 1]).rfind(key, 0) != 0) &&
-        get_tranc_id(Offset_[left]) <= tranc_id) {
-      return left;
-    }
+  if ((get_key(Offset_[left]).rfind(key, 0) == 0) &&
+      get_tranc_id(Offset_[left]).value() <= tranc_id) {
+    return left + 1;
   }
   return std::nullopt;
 }
@@ -252,6 +254,11 @@ std::optional<std::string> Block::get_value_binary(const std::string& key) {
     return get_value(Offset_[idx.value()]);
   }
   return std::nullopt;
+}
+
+bool Block::KeyExists(const std::string& key) {
+  auto idx = get_idx_binary(key);
+  return idx.has_value();
 }
 
 std::pair<std::string, std::string> Block::get_first_and_last_key() {
@@ -303,7 +310,7 @@ bool Block::is_empty() const {
 BlockIterator Block::get_iterator(const std::string& key, uint64_t tranc_id) {
   auto idx = get_idx_binary(key, tranc_id);
   if (!idx.has_value()) {
-    return BlockIterator(shared_from_this(), Offset_.size(), tranc_id);
+    return end();
   }
   return BlockIterator(shared_from_this(), idx.value(), tranc_id);
 }
@@ -322,8 +329,13 @@ Block::get_prefix_iterator(std::string key, uint64_t tranc_id) {
   if (!result1.has_value()) {
     return std::nullopt;
   }
-  auto result2 = get_prefix_end_idx_binary(key + '\xff', tranc_id);
-  auto begin   = std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id);
+  auto begin = std::make_shared<BlockIterator>(shared_from_this(), result1.value(), tranc_id);
+  if (result1.value() == Offset_.size() - 1) {
+    auto end = std::make_shared<BlockIterator>(shared_from_this(), Offset_.size(), tranc_id, false);
+    return std::make_pair(begin, end);
+  }
+  auto result2 = get_prefix_end_idx_binary(key, tranc_id);
+
   auto end = std::make_shared<BlockIterator>(shared_from_this(), result2.value(), tranc_id, false);
   return std::make_pair(begin, end);
 }
