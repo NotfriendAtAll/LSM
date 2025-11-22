@@ -1,5 +1,6 @@
 #pragma once
 #include "Skiplist.h"
+#include "Sstable.h"
 #include <list>
 #include <optional>
 #include <queue>
@@ -67,8 +68,8 @@ class MemTable {
   void   remove_mutex(const std::string& key, uint64_t transaction_id = 0);
   void   remove_batch(const std::vector<std::string>& key_pairs, uint64_t transaction_id = 0);
   bool   IsFull();
-  void   flush_batch(const std::vector<std::pair<std::string, std::string>>& key_value_pairs);
-  void   flush();
+  void   flush(Sstbuild& sstbuild);
+  void   flushsync(Sstbuild& sstbuild);
   void   frozen_cur_table();
   MemTableIterator begin();
   MemTableIterator end();

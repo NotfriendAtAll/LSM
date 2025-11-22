@@ -1,5 +1,6 @@
 #include "../include/memtable.h"
 #include <mutex>
+#include <utility>
 bool operator==(const MemTableIterator& lhs, const MemTableIterator& rhs) noexcept {
   if (lhs.queue_.empty() || rhs.queue_.empty()) {
     return lhs.queue_.empty() && rhs.queue_.empty();
@@ -274,30 +275,33 @@ void MemTable::remove_batch(const std::vector<std::string>& key_pairs, uint64_t 
 bool MemTable::IsFull() {
   return current_table->get_size() > Global_::MAX_MEMTABLE_SIZE_PER_TABLE;
 }
-// 批量刷新磁盘
-void MemTable::flush_batch(
-    const std::vector<std::pair<std::string, std::string>>& key_value_pairs) {
-  std::unique_lock<std::shared_mutex> lock(cur_lock_);
-  for (const auto& pair : key_value_pairs) {
-    current_table->Insert(pair.first, pair.second);
-  }
-  auto new_table = std::make_shared<Skiplist>(MAX_LEVEL);
-  current_table->flush();
-  fixed_tables.push_back(current_table);
-  current_table = new_table;
-  fixed_bytes += current_table->get_size();
-}
+
 // This function is used to flush the current memtable to disk,刷新到磁盘
-void MemTable::flush() {
+void MemTable::flush(Sstbuild& sstbuild) {
   std::unique_lock<std::shared_mutex> lock(cur_lock_);
   auto                                new_table = std::make_shared<Skiplist>(MAX_LEVEL);
-  current_table->flush();
-  fixed_tables.push_back(current_table);
-  current_table = new_table;
+  fixed_tables.push_back(std::move(current_table));
+  current_table = std::move(new_table);
   fixed_bytes += current_table->get_size();
   if (fixed_tables.size() > Global_::MAX_MEMTABLE_SIZE_PER_TABLE) {
+    auto frozen_memtable = fixed_tables.front();
+    for (auto it = frozen_memtable->begin(); it != frozen_memtable->end(); ++it) {
+      sstbuild.add(it.getValue().first, it.getValue().second, it.getseq());
+    }
     fixed_tables.pop_front();
   }
+}
+void MemTable::flushsync(Sstbuild& sstbuild) {
+  std::unique_lock<std::shared_mutex> lock(cur_lock_);
+  auto                                new_table = std::make_shared<Skiplist>(MAX_LEVEL);
+  fixed_tables.push_back(std::move(current_table));
+  current_table = std::move(new_table);
+  fixed_bytes += current_table->get_size();
+  auto& it = fixed_tables.front();
+  for (auto res = it->begin(); res != it->end(); ++res) {
+    sstbuild.add(res.getValue().first, res.getValue().second, res.getseq());
+  }
+  fixed_tables.clear();
 }
 void MemTable::frozen_cur_table() {
   std::unique_lock<std::shared_mutex> lock(cur_lock_);
@@ -305,7 +309,6 @@ void MemTable::frozen_cur_table() {
   auto                                temp_size = current_table->get_size();
   std::unique_lock<std::shared_mutex> lock2(fix_lock_);
   fixed_tables.push_front(current_table);
-  current_table->flush();
   current_table = new_table;
   fixed_bytes += temp_size;
 }

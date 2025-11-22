@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 4.0)
 project(BlockMetaTest)
 
 # 设置 C++ 标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address  -g")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
@@ -14,7 +14,20 @@ include_directories(${GTEST_INCLUDE_DIRS})
 # 添加源文件
 add_executable(blockmeta_test
     BlockMeta_test.cpp
+    ../../src/Sstable.cpp
+    ../../src/SstableIterator.cpp
+    ../../src/Block.cpp
+    ../../src/BlockIterator.cpp
+    ../../src/Blockcache.cpp
+    ../../src/std_file.cpp
+    ../../src/mmap.cpp
+    ../../src/file.cpp
+    ../../src/BloomFilter.cpp
     ../../src/BlockMeta.cpp
+    ../../src/memtable.cpp
+    ../../src/Skiplist.cpp
+    ../../src/Baselterator.cpp
+    ../../src/Global.cpp
 )
 
 # 链接 Google Test 库
