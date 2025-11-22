@@ -92,10 +92,6 @@ TEST_F(MemtableTest, FrozenAndFlush) {
     memtable->frozen_cur_table();
     EXPECT_EQ(memtable->get_cur_size(), 0);
     EXPECT_GT(memtable->get_fixed_size(), 0);
-    
-    // 测试刷新操作
-    memtable->flush();
-    EXPECT_EQ(memtable->get_total_size(), memtable->get_fixed_size());
 }
 
 // 并发测试

@@ -2,21 +2,24 @@
 #include <cstring>
 #include <stdexcept>
 #include <string_view>
+#include <vector>
 
 BlockMeta::BlockMeta() : first_key_(""), last_key_(""), offset_(0) {}
 BlockMeta::BlockMeta(std::string first_key, std::string last_key, size_t offset)
     : first_key_(first_key), last_key_(last_key), offset_(offset) {}
-void BlockMeta::encode_meta_to_slice(std::vector<BlockMeta>& meta, std::vector<uint8_t>& slice) {
-  size_t num_meta = meta.size();
+
+std::vector<uint8_t> BlockMeta::encode_meta_to_slice(std::vector<BlockMeta>& meta) {
+  size_t               num_meta = meta.size();
+  std::vector<uint8_t> slice;
   if (num_meta == 0) {
-    return;
+    return std::vector<uint8_t>{};
   }
-  size_t total_size = sizeof(size_t);
+  size_t total_size = sizeof(size_t);  // num
   for (auto metas : meta) {
     total_size += sizeof(size_t) + sizeof(uint16_t) + metas.first_key_.size() + sizeof(uint16_t) +
                   metas.last_key_.size();
   }
-  total_size += sizeof(uint32_t);
+  total_size += sizeof(uint32_t);  // hash
   slice.resize(total_size);
   uint8_t* ptr = slice.data();
   memcpy(ptr, &num_meta, sizeof(size_t));
@@ -44,7 +47,9 @@ void BlockMeta::encode_meta_to_slice(std::vector<BlockMeta>& meta, std::vector<u
       std::string_view(reinterpret_cast<const char*>(hash_start), hash_size));
   memcpy(ptr, &hash, sizeof(uint32_t));
   ptr += sizeof(uint32_t);
+  return slice;
 }
+
 std::vector<BlockMeta> BlockMeta::decode_meta_from_slice(std::vector<uint8_t>& slice) {
   if (slice.empty()) {
     return {};
