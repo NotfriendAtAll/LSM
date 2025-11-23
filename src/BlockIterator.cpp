@@ -1,8 +1,7 @@
 #include "../include/BlockIterator.h"
 #include "../include/Block.h"
-#include <boost/stacktrace.hpp>
-#include <boost/stacktrace/stacktrace.hpp>
 #include <optional>
+#include <print>
 #include <utility>
 
 bool operator==(const BlockIterator& lhs, const BlockIterator& rhs) noexcept {
@@ -23,9 +22,12 @@ BlockIterator::BlockIterator(std::shared_ptr<Block> block_, const std::string& k
     current_index = block->Offset_.size();
   }
 }
-BlockIterator::BlockIterator(std::shared_ptr<Block> block_, size_t index, uint64_t tranc_id)
+BlockIterator::BlockIterator(std::shared_ptr<Block> block_, size_t index, uint64_t tranc_id,
+                             bool should_skip)
     : block(block_), current_index(index), tranc_id_(tranc_id) {
-  skip_by_tranc_id();  // 跳过不可见的事务
+  if (should_skip) {
+    skip_by_tranc_id();  // 只在需要时跳过
+  }
 }
 
 bool BlockIterator::is_end() {
@@ -69,33 +71,36 @@ auto BlockIterator::operator<=>(const BlockIterator& other) const -> std::strong
 }
 
 BlockIterator::value_type BlockIterator::getValue() const {
-  if (current_index < 0 || current_index > block->Offset_.size()) {
+  if (current_index < 0 || current_index >= block->Offset_.size()) {
     throw std::out_of_range("Index out of range in BlockIterator");
   }
   auto offset = block->Offset_[current_index];
-  auto entry  = block->get_entry(offset, current_index);
+  auto entry  = block->get_entry(offset);
   return std::make_pair(entry->key, entry->value);
 }
 size_t BlockIterator::getIndex() const {
   return current_index;
 }
+std::shared_ptr<Block> BlockIterator::get_block() const {
+  return block;
+}
 void BlockIterator::update_current() {
   cached_value = std::nullopt;  // 每次都清空缓存
   if (block && current_index < block->Offset_.size()) {
     auto offset  = block->Offset_[current_index];
-    auto entry   = block->get_entry(offset, current_index);
+    auto entry   = block->get_entry(offset);
     cached_value = std::make_pair(entry->key, entry->value);
   }
 }
 void BlockIterator::skip_by_tranc_id() {
-  if (tranc_id_ == 0) {
+  if (tranc_id_ == 0 || !block) {
     cached_value = std::nullopt;
     return;
   }
   while (current_index < block->Offset_.size()) {
     auto offset = block->Offset_[current_index];
-    auto entry  = block->get_entry(offset, current_index);
-    if (entry->tranc_id < tranc_id_) {
+    auto entry  = block->get_entry(offset);
+    if (entry->tranc_id <= tranc_id_) {  // ← 改成 <=（逻辑检查）
       break;
     }
     ++current_index;
