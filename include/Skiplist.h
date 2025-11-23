@@ -13,7 +13,7 @@
 
 const int MAX_LEVEL = 16;
 
-class skiplist;
+class SkiplistIterator;
 class Node {
  public:
   std::string                        key_;
@@ -22,21 +22,23 @@ class Node {
   uint64_t                           transaction_id;
   Node(const std::string& key, const std::string& value, int level, uint64_t transaction_ids = 0)
       : key_(key), value_(value), forward(level, nullptr), transaction_id(transaction_ids) {}
-  bool operator>(const Node& other) const;
-  bool operator<(const Node& other) const;
+  auto operator<=>(const Node& other) const;
 };
 
+bool operator==(const SkiplistIterator& lhs, const SkiplistIterator& rhs) noexcept;
 class SkiplistIterator : public BaseIterator {
   friend class Skiplist;  // 让 Skiplist 可以访问私有成员
+  friend bool operator==(const SkiplistIterator& lhs, const SkiplistIterator& rhs) noexcept;
+
  public:
   using valuetype = std::pair<std::string, std::string>;
   SkiplistIterator(std::shared_ptr<Node> skiplist);
   SkiplistIterator();
   ~SkiplistIterator() = default;
-  BaseIterator&                       operator++() override;
-  bool                                operator==(const BaseIterator& other) const override;
-  bool                                operator!=(const BaseIterator& other) const override;
-  bool                                operator*() const override;
+  BaseIterator& operator++() override;
+  auto          operator<=>(const BaseIterator& other) const;
+
+  valuetype                           operator*() const override;
   SkiplistIterator                    operator+=(int offset) const;
   bool                                valid() const override;
   bool                                isEnd() override;

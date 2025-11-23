@@ -25,7 +25,8 @@ class BlockIterator {
   // 构造函数
   BlockIterator();
   BlockIterator(std::shared_ptr<Block> block_, const std::string& key, uint64_t tranc_id = 0);
-  BlockIterator(std::shared_ptr<Block> block_, size_t index, uint64_t tranc_id = 0);
+  BlockIterator(std::shared_ptr<Block> block_, size_t index, uint64_t tranc_id = 0,
+                bool should_skip = true);
 
   bool is_end();
 
@@ -35,9 +36,10 @@ class BlockIterator {
   BlockIterator  operator++(int) = delete;
   value_type     operator*();
 
-  auto       operator<=>(const BlockIterator& rhs) const -> std::strong_ordering;
-  value_type getValue() const;
-  size_t     getIndex() const;
+  auto                   operator<=>(const BlockIterator& rhs) const -> std::strong_ordering;
+  value_type             getValue() const;
+  size_t                 getIndex() const;
+  std::shared_ptr<Block> get_block() const;
 
  private:
   void update_current();

@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 4.0)
 project(MyProject)
 
 # 设置C++标准
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 
 # 添加被测代码
 add_library(skiplist STATIC ../src/Skiplist.cpp)
