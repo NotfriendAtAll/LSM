@@ -177,7 +177,7 @@ std::optional<size_t> Block::get_prefix_begin_idx_binary(const std::string& key,
   // 优先检查完全匹配（并传入 tranc_id）
   auto exact = get_idx_binary(key, tranc_id);
   if (exact.has_value())
-    return exact;
+    return exact.value();
 
   // 二分查找插入点（第一个 >= key）
   int left  = 0;
@@ -192,12 +192,12 @@ std::optional<size_t> Block::get_prefix_begin_idx_binary(const std::string& key,
     }
   }
   if (left < Offset_.size()) {
-    if ((get_key(Offset_[left]).rfind(key, 0) == 0) &&
+    if (get_key(Offset_[left]).starts_with(key) &&
         get_tranc_id(Offset_[left]).value() <= tranc_id) {
       return left;
     }
   } else {
-    if ((get_key(Offset_[left - 1]).rfind(key, 0) == 0) &&
+    if (get_key(Offset_[left - 1]).starts_with(key) &&
         get_tranc_id(Offset_[left - 1]).value() <= tranc_id) {
       return left - 1;
     }
@@ -213,27 +213,42 @@ std::optional<size_t> Block::get_prefix_end_idx_binary(const std::string& key, u
   // 优先检查完全匹配（并传入 tranc_id）
   auto exact = get_idx_binary(want, tranc_id);
   if (exact.has_value())
-    return exact;
-  // 二分查找插入点（第一个 <= key）
+    return exact.value() + 1;
+  // 二分查找插入点：找到最后一个匹配前缀的位置
+  // 查找策略：找到第一个 >= want 的位置，然后往前找一个匹配前缀的位置
   int left  = 0;
   int right = Offset_.size();
   while (left < right) {
     int         mid     = left + (right - left) / 2;
     std::string mid_key = get_key(Offset_[mid]);
-    if ((mid + 1 == right) && mid_key.rfind(key, 0) == 0) {
-      if (!(get_tranc_id(Offset_[mid]) <= tranc_id)) {
-        return std::nullopt;
+
+    // 如果 mid_key 匹配前缀，继续往后找（可能有更多匹配的）
+    if (mid_key.starts_with(key)) {
+      if (get_tranc_id(Offset_[mid]).value() <= tranc_id) {
+        left = mid + 1;  // 继续往后找
+      } else {
+        // 事务ID不符合，往前找
+        right = mid;
       }
-      return mid + 1;
-    }
-    if (mid_key < want) {
-      left = mid;
+    } else if (mid_key < want) {
+      // mid_key 小于 want，说明匹配前缀的项可能在后面
+      left = mid + 1;
     } else {
-      right = mid - 1;
+      // mid_key >= want，说明匹配前缀的项在前面
+      right = mid;
     }
   }
-  if ((get_key(Offset_[left]).rfind(key, 0) == 0) &&
-      get_tranc_id(Offset_[left]).value() <= tranc_id) {
+
+  // 现在 left 指向第一个不匹配前缀的位置
+  // 需要往前找最后一个匹配前缀的位置
+  if (left > 0) {
+    left--;  // 往前移动一个位置
+    if (get_key(Offset_[left]).starts_with(key) &&
+        get_tranc_id(Offset_[left]).value() <= tranc_id) {
+      return left + 1;  // 返回最后一个匹配位置 + 1
+    }
+  }
+  if (get_key(Offset_[left]).starts_with(key) && get_tranc_id(Offset_[left]).value() <= tranc_id) {
     return left + 1;
   }
   return std::nullopt;
@@ -336,6 +351,8 @@ Block::get_prefix_iterator(std::string key, uint64_t tranc_id) {
   }
   auto result2 = get_prefix_end_idx_binary(key, tranc_id);
 
-  auto end = std::make_shared<BlockIterator>(shared_from_this(), result2.value(), tranc_id, false);
+  // 如果找不到 end 索引，使用 Offset_.size() 作为结束位置
+  size_t end_index = result2.has_value() ? result2.value() : Offset_.size();
+  auto   end = std::make_shared<BlockIterator>(shared_from_this(), end_index, tranc_id, false);
   return std::make_pair(begin, end);
 }

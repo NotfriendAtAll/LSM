@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 4.0)
 cmake_policy(SET CMP0167 NEW)  # 启用NEW行为，直接使用BoostConfig.cmake
 project(LSM_Block_Test)
 # 设置 C++ 标准

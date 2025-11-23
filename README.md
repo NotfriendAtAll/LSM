@@ -8,7 +8,7 @@
 
 ## 概述
 
-本项目是一个基于 C++20 的高性能 LSM（Log-Structured Merge Tree）存储引擎实现。该引擎采用测试驱动开发（TDD）方法，使用 GoogleTest 框架确保代码质量和可靠性。LSM 树是现代 NoSQL 数据库（如 LevelDB、RocksDB）的核心数据结构，特别适用于写密集型应用场景。
+本项目是一个基于 C++23 的高性能 LSM（Log-Structured Merge Tree）存储引擎实现。该引擎采用测试驱动开发（TDD）方法，使用 GoogleTest 框架确保代码质量和可靠性。LSM 树是现代 NoSQL 数据库（如 LevelDB、RocksDB）的核心数据结构，特别适用于写密集型应用场景。
 
 ### 核心特性
 
@@ -169,12 +169,12 @@ Block Layout:
 ## 环境要求
 
 ### 系统要求
-- **操作系统**：Linux（推荐 Ubuntu 22.04+）、macOS 10.14+
-- **编译器**：GCC 14.2+ 或 Clang 18.0+
-- **C++ 标准**：C++17 或更高版本
+- **操作系统**：Linux（推荐 Ubuntu 24.04+）、macOS 10.14+
+- **编译器**：GCC 14.2+ 或 Clang 20.0+
+- **C++ 标准**：C++23 或更高版本
 
 ### 依赖项
-- **CMake**：3.20 或更高版本
+- **CMake**：4.0 或更高版本
 - **GoogleTest**：1.14.0 或更高版本
 - **其他**：pthread（多线程支持）
 
